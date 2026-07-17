@@ -192,7 +192,7 @@ export function QRPreview({
       )
     : undefined;
 
-  const displayValue = qrValue || 'https://qrcraft.app';
+  const displayValue = qrValue || 'https://github.com/iamsainikhil/qr-canvas'; // Fallback value for QR code generation
   const hasContent = Boolean(qrValue && qrValue.trim().length > 0);
 
   useEffect(() => {
