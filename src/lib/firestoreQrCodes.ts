@@ -11,8 +11,9 @@ import {
   writeBatch,
   setDoc,
 } from 'firebase/firestore';
+import { deleteObject, ref as storageRef } from 'firebase/storage';
 
-import { firestore } from '@/integrations/firebase/client';
+import { firestore, storage } from '@/integrations/firebase/client';
 import {
   SavedQRCode,
   SavedQRCodeStyleSnapshot,
@@ -60,7 +61,66 @@ const requireFirestore = () => {
 
 const userQrsCollectionSafe = (ownerUid: string) => collection(requireFirestore(), 'users', ownerUid, 'qrs');
 const userQrDocSafe = (ownerUid: string, qrId: string) => doc(requireFirestore(), 'users', ownerUid, 'qrs', qrId);
+const userQrScansCollectionSafe = (ownerUid: string, qrId: string) =>
+  collection(requireFirestore(), 'users', ownerUid, 'qrs', qrId, 'scans');
 const routeDocSafe = (shortCode: string) => doc(requireFirestore(), 'qr_routes', shortCode);
+
+const uploadBackedTypes = new Set(['image', 'pdf', 'mp3']);
+
+const parseStoragePathFromDownloadUrl = (value: string) => {
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    if (!host.includes('firebasestorage.googleapis.com')) {
+      return null;
+    }
+
+    const marker = '/o/';
+    const objectIndex = url.pathname.indexOf(marker);
+    if (objectIndex < 0) {
+      return null;
+    }
+
+    const encodedPath = url.pathname.slice(objectIndex + marker.length);
+    if (!encodedPath) {
+      return null;
+    }
+
+    return decodeURIComponent(encodedPath);
+  } catch {
+    return null;
+  }
+};
+
+const tryDeleteUploadedTargetAsset = async (qr: SavedQRCode) => {
+  if (!storage) return;
+  if (!uploadBackedTypes.has(qr.type)) return;
+
+  const objectPath = parseStoragePathFromDownloadUrl(qr.targetValue);
+  if (!objectPath) return;
+
+  try {
+    await deleteObject(storageRef(storage, objectPath));
+  } catch {
+    // Ignore storage cleanup failures so Firestore cleanup still succeeds.
+  }
+};
+
+const deleteScansForQr = async (ownerUid: string, qrId: string) => {
+  const scansSnapshot = await getDocs(userQrScansCollectionSafe(ownerUid, qrId));
+  if (scansSnapshot.empty) return;
+
+  const db = requireFirestore();
+  const docs = scansSnapshot.docs;
+  const batchSize = 400;
+
+  for (let i = 0; i < docs.length; i += batchSize) {
+    const batch = writeBatch(db);
+    const chunk = docs.slice(i, i + batchSize);
+    chunk.forEach((scanDoc) => batch.delete(scanDoc.ref));
+    await batch.commit();
+  }
+};
 
 const getUniqueShortCode = async () => {
   for (let attempts = 0; attempts < 8; attempts += 1) {
@@ -170,6 +230,11 @@ export const subscribeToOwnerQrCodes = (
 };
 
 export const deleteQrCodeForOwner = async (ownerUid: string, qr: SavedQRCode) => {
+  await Promise.all([
+    deleteScansForQr(ownerUid, qr.id),
+    tryDeleteUploadedTargetAsset(qr),
+  ]);
+
   await deleteDoc(userQrDocSafe(ownerUid, qr.id));
   if (qr.shortCode) {
     await deleteDoc(routeDocSafe(qr.shortCode));
@@ -178,13 +243,18 @@ export const deleteQrCodeForOwner = async (ownerUid: string, qr: SavedQRCode) =>
 
 export const clearAllQrCodesForOwner = async (ownerUid: string) => {
   const snapshot = await getDocs(userQrsCollectionSafe(ownerUid));
-  const deletePromises = snapshot.docs.flatMap((entry) => {
+  const deletePromises = snapshot.docs.map(async (entry) => {
     const data = entry.data() as SavedQRCode;
+    await Promise.all([
+      deleteScansForQr(ownerUid, data.id),
+      tryDeleteUploadedTargetAsset(data),
+    ]);
+
     const ops: Promise<void>[] = [deleteDoc(entry.ref)];
     if (data.shortCode) {
       ops.push(deleteDoc(routeDocSafe(data.shortCode)));
     }
-    return ops;
+    await Promise.all(ops);
   });
 
   await Promise.all(deletePromises);
