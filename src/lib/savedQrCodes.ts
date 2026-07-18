@@ -123,6 +123,26 @@ export const createSavedQrCodeDocument = ({
   };
 };
 
+export const buildUpdatedSavedQrCodeDocument = ({
+  item,
+  value,
+}: {
+  item: SavedQRCode;
+  value: string;
+}): SavedQRCode => {
+  const trimmedValue = value.trim();
+  const now = new Date().toISOString();
+  const finalValue = item.trackingEnabled && item.trackingUrl ? item.trackingUrl : trimmedValue;
+
+  return {
+    ...item,
+    name: buildSavedQrName(item.type, trimmedValue),
+    value: finalValue,
+    targetValue: trimmedValue,
+    updatedAt: now,
+  };
+};
+
 export const isValidSavedQrList = (value: unknown): value is SavedQRCode[] => {
   return Array.isArray(value);
 };
