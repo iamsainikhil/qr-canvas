@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/r/:shortCode",
+      "destination": "/api/r/:shortCode"
+    }
+  ]
+}
