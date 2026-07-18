@@ -447,7 +447,7 @@ export function QRStyleTabs({
   return (
     <div className="space-y-6">
       <div className="space-y-3">
-        <h2 className="font-heading text-[20px] font-bold tracking-tight text-[#171717] leading-[120%]">Content</h2>
+        <h2 className="font-heading text-[20px] font-bold tracking-tight text-foreground leading-[120%]">Content</h2>
         <div className="rounded-2xl border border-border bg-card p-4">
           {renderInputFields()}
         </div>
@@ -455,7 +455,7 @@ export function QRStyleTabs({
 
       {/* Style Section */}
       <div className="space-y-6">
-        <h2 className="font-heading text-[20px] font-bold tracking-tight text-[#171717] leading-[120%]">Style your QR</h2>
+        <h2 className="font-heading text-[20px] font-bold tracking-tight text-foreground leading-[120%]">Style your QR</h2>
         
         {/* Theme Presets */}
         <div className="space-y-3">
