@@ -109,6 +109,16 @@ Final output with logo from logo.dev (or you can upload your own logo) and scan 
 
 Personal QR library with unlimited per-code scan tracking and analytics.
 
+### QR Code Deletion — Full Cleanup
+
+When deleting a QR code, the app now automatically cleans up all associated data:
+
+- **Scan records** — all scan events for that QR are batch-deleted from Firestore
+- **Uploaded assets** — if the QR targets an uploaded file (image, PDF, MP3), the file is removed from Firebase Storage
+- **Route mapping** — the short-code redirect document is deleted from Firestore
+
+This ensures no orphaned data remains in your project.
+
 ---
 
 ## Architecture
@@ -159,7 +169,7 @@ src/
 │   ├── QRScanner.tsx      # Scan QR from webcam
 │   └── ui/                # shadcn/ui primitives
 ├── lib/
-│   ├── firestoreQrCodes.ts # Firestore CRUD + scan events + update destination
+│   ├── firestoreQrCodes.ts # Firestore CRUD + scan events + update destination + bulk scan/storage cleanup
 │   ├── savedQrCodes.ts     # Type definitions
 │   ├── authOwner.ts        # Owner UID helper
 │   ├── fontRegistry.ts     # Google Fonts loading
@@ -253,7 +263,7 @@ The repo includes strict [single-owner rules](firestore.rules) covering:
 
 - `app_config/private` — bootstrap owner config
 - `users/{uid}/qrs/{qrId}` — owner-only QR documents
-- `users/{uid}/qrs/{qrId}/scans/{scanId}` — owner read, Admin SDK write only
+- `users/{uid}/qrs/{qrId}/scans/{scanId}` — owner read, Admin SDK create/update, owner delete (enables scan cleanup on QR deletion)
 - `qr_routes/{shortCode}` — owner-only route mappings
 
 Deploy via Firebase CLI:
@@ -323,6 +333,7 @@ Captured scan data: timestamp, visitor cookie ID, user agent, referrer, country/
 
 - **Dashboard pagination** — if you save 100+ QRs, consider paginating the dashboard
 - **Firestore costs** — each save, delete, or scan writes to Firestore; monitor your free-tier usage
+- **Batch deletion** — scan records are deleted in batches of 400 to stay within Firestore limits; large numbers of scans may take multiple round-trips
 - **Font loading** — scan label fonts load on demand, keeping the initial bundle lean
 
 ---
