@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Moon, Sun } from 'lucide-react';
+import { useTheme } from '@/hooks/use-theme';
 import { formatDistanceToNow } from 'date-fns';
 import { ArrowLeft, BarChart2, Copy, Download, ExternalLink, Link2, Loader2, QrCode, Search, Trash2 } from 'lucide-react';
 import QRCodeStyling, { type CornerDotType, type CornerSquareType, type DotType } from 'qr-code-styling';
@@ -20,11 +22,13 @@ import { useToast } from '@/hooks/use-toast';
 import { SavedQRCode, qrTypeLabel } from '@/lib/savedQrCodes';
 import { defaultScanLabelStyle, getContrastingTextColor } from '@/components/scanLabelStyle';
 import { resolveLogoStyleOptions } from '@/components/logoStyle';
+import { ensureGoogleFontLoaded } from '@/lib/fontRegistry';
 import {
   ScanEvent,
   clearAllQrCodesForOwner,
   deleteQrCodeForOwner,
   fetchQrScanEvents,
+  updateQrCodeDestinationForOwner,
   subscribeToOwnerQrCodes,
 } from '@/lib/firestoreQrCodes';
 import { getCurrentOwnerUid } from '@/lib/authOwner';
@@ -96,6 +100,7 @@ const buildLogoPlaceholder = (
 
 function SavedQrStyledPreview({ item, size = 280 }: { item: SavedQRCode; size?: number }) {
   const [qrElement, setQrElement] = useState<HTMLDivElement | null>(null);
+  const renderSize = Math.max(size, 280);
 
   useEffect(() => {
     if (!qrElement) return;
@@ -111,8 +116,9 @@ function SavedQrStyledPreview({ item, size = 280 }: { item: SavedQRCode; size?: 
       : undefined;
 
     const qr = new QRCodeStyling({
-      width: size,
-      height: size,
+      width: renderSize,
+      height: renderSize,
+      type: 'svg',
       data: item.value,
       ...(logoPlaceholder
         ? {
@@ -148,16 +154,43 @@ function SavedQrStyledPreview({ item, size = 280 }: { item: SavedQRCode; size?: 
     qrElement.innerHTML = '';
     qr.append(qrElement);
 
+    const renderedNode = qrElement.firstElementChild as HTMLElement | null;
+    if (renderedNode) {
+      renderedNode.style.width = `${size}px`;
+      renderedNode.style.height = `${size}px`;
+      renderedNode.style.display = 'block';
+    }
+
     return () => {
       qrElement.innerHTML = '';
     };
-  }, [item, qrElement, size]);
+  }, [item, qrElement, renderSize, size]);
 
   const resolvedLogoStyle = resolveLogoStyleOptions(item.style.logoStyle || undefined);
   const scanLabelStyle = {
     ...defaultScanLabelStyle,
     ...(item.style.scanLabelStyle || {}),
   };
+  const [resolvedScanFontFamily, setResolvedScanFontFamily] = useState(scanLabelStyle.fontFamily);
+  const labelScale = Math.min(size / 280, 1);
+  const labelFontSize = Math.max(9, Math.round(scanLabelStyle.fontSize * labelScale));
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const applyLoadedFont = async () => {
+      await ensureGoogleFontLoaded(scanLabelStyle.fontFamily, [400, 500, 600, 700, 800]);
+      if (!cancelled) {
+        setResolvedScanFontFamily(scanLabelStyle.fontFamily);
+      }
+    };
+
+    void applyLoadedFont();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [scanLabelStyle.fontFamily]);
 
   return (
     <div
@@ -169,7 +202,10 @@ function SavedQrStyledPreview({ item, size = 280 }: { item: SavedQRCode; size?: 
     >
       <div className="flex flex-col items-center gap-2">
         <div className="relative inline-flex">
-          <div ref={setQrElement} />
+          <div
+            ref={setQrElement}
+            style={{ width: `${size}px`, height: `${size}px`, lineHeight: 0 }}
+          />
           {item.style.logo && resolvedLogoStyle.badgeSize > 0 && (
             <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
               <div
@@ -198,9 +234,9 @@ function SavedQrStyledPreview({ item, size = 280 }: { item: SavedQRCode; size?: 
             className="text-center leading-tight"
             style={{
               color: getContrastingTextColor(item.style.bgColor || '#FFFFFF'),
-              fontSize: `${scanLabelStyle.fontSize}px`,
+              fontSize: `${labelFontSize}px`,
               fontWeight: scanLabelStyle.fontWeight,
-              fontFamily: `"${scanLabelStyle.fontFamily}", Satoshi, system-ui, -apple-system, sans-serif`,
+              fontFamily: `"${resolvedScanFontFamily}", Satoshi, system-ui, -apple-system, sans-serif`,
               textTransform: scanLabelStyle.uppercase ? 'uppercase' : 'none',
             }}
           >
@@ -301,7 +337,7 @@ function AnalyticsContent({ item, events }: { item: SavedQRCode; events: ScanEve
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Last scanned</CardDescription>
-            <CardTitle className="text-sm font-semibold">
+            <CardTitle className="truncate text-2xl">
               {item.stats.lastScannedAt
                 ? formatDistanceToNow(new Date(item.stats.lastScannedAt), { addSuffix: true })
                 : 'Never'}
@@ -392,6 +428,25 @@ function AnalyticsContent({ item, events }: { item: SavedQRCode; events: ScanEve
   );
 }
 
+function ThemeToggle() {
+  const { theme, toggleTheme } = useTheme();
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={toggleTheme}
+      className="rounded-full"
+      title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+    >
+      {theme === 'light' ? (
+        <Moon className="h-4 w-4" />
+      ) : (
+        <Sun className="h-4 w-4" />
+      )}
+    </Button>
+  );
+}
+
 export default function Dashboard() {
   const [savedQRCodes, setSavedQRCodes] = useState<SavedQRCode[]>([]);
   const [loading, setLoading] = useState(true);
@@ -399,6 +454,9 @@ export default function Dashboard() {
   const [query, setQuery] = useState('');
   const { toast } = useToast();
   const [analyticsQr, setAnalyticsQr] = useState<SavedQRCode | null>(null);
+  const [editingQr, setEditingQr] = useState<SavedQRCode | null>(null);
+  const [destinationDraft, setDestinationDraft] = useState('');
+  const [savingDestination, setSavingDestination] = useState(false);
   const [scanEvents, setScanEvents] = useState<ScanEvent[]>([]);
   const [scanEventsLoading, setScanEventsLoading] = useState(false);
 
@@ -452,7 +510,10 @@ export default function Dashboard() {
     if (!term) return savedQRCodes;
 
     return savedQRCodes.filter((item) => {
-      return item.name.toLowerCase().includes(term) || item.value.toLowerCase().includes(term) || qrTypeLabel[item.type].toLowerCase().includes(term);
+      return item.name.toLowerCase().includes(term)
+        || item.value.toLowerCase().includes(term)
+        || item.targetValue.toLowerCase().includes(term)
+        || qrTypeLabel[item.type].toLowerCase().includes(term);
     });
   }, [query, savedQRCodes]);
 
@@ -518,6 +579,46 @@ export default function Dashboard() {
         description: 'Could not copy this QR value.',
         variant: 'destructive',
       });
+    }
+  };
+
+  const openDestinationEditor = (item: SavedQRCode) => {
+    setEditingQr(item);
+    setDestinationDraft(item.targetValue);
+  };
+
+  const saveDestination = async () => {
+    if (!ownerUid || !editingQr) return;
+
+    setSavingDestination(true);
+    try {
+      const updated = await updateQrCodeDestinationForOwner({
+        ownerUid,
+        qr: editingQr,
+        value: destinationDraft,
+      });
+
+      setEditingQr(null);
+      setDestinationDraft('');
+      if (analyticsQr?.id === updated.id) {
+        setAnalyticsQr(updated);
+      }
+
+      toast({
+        title: 'QR updated',
+        description: updated.trackingEnabled
+          ? 'The tracking destination was updated without changing the QR code link.'
+          : 'The saved QR content was updated.',
+      });
+    } catch (error) {
+      const description = error instanceof Error ? error.message : 'Update failed';
+      toast({
+        title: 'Could not update QR',
+        description,
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingDestination(false);
     }
   };
 
@@ -699,10 +800,11 @@ export default function Dashboard() {
         <header className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Library</p>
-            <h1 className="font-heading text-2xl font-bold text-foreground sm:text-3xl">Saved QR Dashboard</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Keep every generated QR in one place and prepare for scan analytics.</p>
+            <h1 className="font-heading text-2xl font-bold text-foreground sm:text-3xl">Saved QR Codes Dashboard</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Save unlimited dynamic QR codes with full scan analytics, visitor tracking, and geo-insights — free for personal and commercial use.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <ThemeToggle />
             <Button asChild variant="outline" className="rounded-full">
               <Link to="/" className="inline-flex items-center gap-2">
                 <ArrowLeft className="h-4 w-4" />
@@ -737,14 +839,16 @@ export default function Dashboard() {
           <Card className="border-accent/30 bg-accent/5">
             <CardHeader className="pb-2">
               <CardDescription>Top scanned</CardDescription>
-              {topQr && topQr.stats.scanCount > 0 ? (
-                <>
-                  <CardTitle className="truncate text-base font-semibold" title={topQr.name}>{topQr.name}</CardTitle>
-                  <CardDescription>{topQr.stats.scanCount} scan{topQr.stats.scanCount !== 1 ? 's' : ''}</CardDescription>
-                </>
-              ) : (
-                <CardTitle className="text-base font-semibold text-muted-foreground">No scans yet</CardTitle>
-              )}
+              <div className="min-h-[36px]">
+                {topQr && topQr.stats.scanCount > 0 ? (
+                  <div>
+                    <CardTitle className="truncate text-base font-semibold" title={topQr.name}>{topQr.name}</CardTitle>
+                    <CardDescription>{topQr.stats.scanCount} scan{topQr.stats.scanCount !== 1 ? 's' : ''}</CardDescription>
+                  </div>
+                ) : (
+                  <CardTitle className="text-base font-semibold text-muted-foreground">No scans yet</CardTitle>
+                )}
+              </div>
             </CardHeader>
           </Card>
         </section>
@@ -783,23 +887,24 @@ export default function Dashboard() {
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {filteredItems.map((item) => {
               const createdAgo = formatDistanceToNow(new Date(item.createdAt), { addSuffix: true });
+              const qrBg = item.style.bgColor || '#FFFFFF';
+              const cardTextColor = getContrastingTextColor(qrBg);
+              const cardMutedColor = cardTextColor === '#FFFFFF' ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.5)';
 
               return (
-                <Card key={item.id} className="overflow-hidden">
-                  <CardContent className="p-0">
-                    <div className="flex items-start gap-4 border-b border-border p-4" style={{ background: item.style.bgGradient || item.style.bgColor }}>
-                      <div className="rounded-xl border border-black/10 bg-white/70 p-2 backdrop-blur-sm">
-                        <SavedQrStyledPreview item={item} size={88} />
-                      </div>
+                <Card key={item.id} className="flex h-full flex-col overflow-hidden">
+                  <CardContent className="flex flex-1 flex-col p-0">
+                    <div className="flex flex-1 items-start gap-4 border-b border-border p-4" style={{ background: item.style.bgGradient || item.style.bgColor }}>
+                      <SavedQrStyledPreview item={item} size={88} />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge variant="secondary">{qrTypeLabel[item.type]}</Badge>
-                          <span className="text-xs text-muted-foreground">{createdAgo}</span>
+                          <span className="text-xs" style={{ color: cardMutedColor }}>{createdAgo}</span>
                         </div>
-                        <h3 className="mt-2 truncate font-heading text-lg font-bold text-foreground">{item.name}</h3>
-                        <p className="mt-1 line-clamp-2 break-all text-sm text-muted-foreground">{item.value}</p>
+                        <h3 className="mt-2 truncate font-heading text-lg font-bold" style={{ color: cardTextColor }}>{item.name}</h3>
+                        <p className="mt-1 line-clamp-2 break-all text-sm" style={{ color: cardMutedColor }}>{item.value}</p>
                         {item.trackingEnabled && (
-                          <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+                          <div className="mt-2 flex items-center gap-3 text-xs" style={{ color: cardMutedColor }}>
                             <span className="flex items-center gap-1 font-medium">
                               <BarChart2 className="h-3 w-3" />
                               {item.stats.scanCount} scan{item.stats.scanCount !== 1 ? 's' : ''}
@@ -812,7 +917,7 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 p-4">
+                    <div className="mt-auto grid grid-cols-2 gap-2 p-4">
                       <Dialog>
                         <DialogTrigger asChild>
                           <Button variant="outline" className="col-span-2 rounded-full">
@@ -854,6 +959,14 @@ export default function Dashboard() {
                       >
                         <Link2 className="h-4 w-4" />
                         Copy tracking
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="col-span-2 rounded-full"
+                        onClick={() => openDestinationEditor(item)}
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        {item.trackingEnabled ? 'Edit destination' : 'Edit content'}
                       </Button>
                       {item.trackingEnabled && (
                         <Button
@@ -904,6 +1017,61 @@ export default function Dashboard() {
           ) : analyticsQr ? (
             <AnalyticsContent item={analyticsQr} events={scanEvents} />
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={editingQr !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingQr(null);
+            setDestinationDraft('');
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ExternalLink className="h-4 w-4" />
+              {editingQr?.trackingEnabled ? 'Edit destination' : 'Edit content'}
+            </DialogTitle>
+            <DialogDescription>
+              {editingQr?.trackingEnabled
+                ? 'Update where this saved QR redirects. The QR image and tracking link stay the same.'
+                : 'Update the QR content and save the revised code back to your library.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">
+              {editingQr?.trackingEnabled ? 'Destination URL' : 'QR content'}
+            </label>
+            <Input
+              value={destinationDraft}
+              onChange={(event) => setDestinationDraft(event.target.value)}
+              placeholder={editingQr?.trackingEnabled ? 'https://example.com/new-destination' : 'Enter the updated QR content'}
+              className="h-11 rounded-full"
+              autoComplete="off"
+              autoFocus
+            />
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              className="rounded-full"
+              onClick={() => {
+                setEditingQr(null);
+                setDestinationDraft('');
+              }}
+              disabled={savingDestination}
+            >
+              Cancel
+            </Button>
+            <Button className="rounded-full" onClick={() => void saveDestination()} disabled={savingDestination}>
+              {savingDestination ? 'Saving…' : 'Save changes'}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
