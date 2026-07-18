@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Copy, Check } from 'lucide-react';
+import { Copy, Check, BookmarkPlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { FrameStyle } from './QRStyleTabs';
@@ -25,6 +25,7 @@ interface QRPreviewProps {
   onDownloadSizeChange?: (size: number) => void;
   scanText?: string;
   scanLabelStyle?: ScanLabelStyleOptions;
+  onSave?: () => void;
 }
 
 const drawRoundedRect = (
@@ -172,6 +173,7 @@ export function QRPreview({
   onDownloadSizeChange,
   scanText = '',
   scanLabelStyle = defaultScanLabelStyle,
+  onSave,
 }: QRPreviewProps) {
   const qrRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -535,6 +537,18 @@ export function QRPreview({
             Download QR code
           </Button>
         </div>
+        <Button
+          variant="outline"
+          onClick={onSave}
+          disabled={!hasContent}
+          className={cn(
+            "h-10 rounded-full px-4",
+            hasContent ? "" : "cursor-not-allowed"
+          )}
+        >
+          <BookmarkPlus className="h-4 w-4" />
+          Save
+        </Button>
         <Button
           variant="ghost"
           size="icon"

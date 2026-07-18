@@ -1,0 +1,35 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function ownerConfigPath() {
+      return /databases/(default)/documents/app_config/private;
+    }
+
+    function ownerConfigExists() {
+      return firestore.exists(ownerConfigPath());
+    }
+
+    function ownerUid() {
+      return firestore.get(ownerConfigPath()).data.ownerUid;
+    }
+
+    function isOwner() {
+      return isSignedIn() && ownerConfigExists() && request.auth.uid == ownerUid();
+    }
+
+    // Uploaded destination files for dynamic QR types.
+    match /users/{uid}/qr-targets/{qrType}/{fileName} {
+      allow read: if true;
+      allow create, update, delete: if isOwner() && uid == request.auth.uid;
+    }
+
+    // Lock down everything else in Storage by default.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

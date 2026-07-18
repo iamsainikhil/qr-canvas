@@ -1,114 +1,115 @@
 @import './styles/fontshare.css';
 
+/* CSS Variables MUST be outside @layer for proper cascade */
+:root {
+  /* Clean neutral background #FAFAFA */
+  --background: 0 0% 98%;
+  --foreground: 0 0% 15%;
+
+  /* Card surfaces - pure white */
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 15%;
+
+  /* Popover matching cards */
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 15%;
+
+  /* Primary - Pure dark gray */
+  --primary: 0 0% 20%;
+  --primary-foreground: 0 0% 98%;
+
+  /* Secondary - Light gray */
+  --secondary: 0 0% 96%;
+  --secondary-foreground: 0 0% 25%;
+
+  /* Muted - Gentle gray */
+  --muted: 0 0% 94%;
+  --muted-foreground: 0 0% 45%;
+
+  /* Accent - Blue */
+  --accent: 220 90% 55%;
+  --accent-foreground: 0 0% 100%;
+
+  /* Highlight - Light blue */
+  --highlight: 220 100% 97%;
+  --highlight-foreground: 220 80% 40%;
+
+  /* Destructive */
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 98%;
+
+  /* Borders & inputs */
+  --border: 0 0% 90%;
+  --input: 0 0% 92%;
+  --ring: 220 90% 55%;
+
+  --radius: 0.75rem;
+
+  --radius: 0.75rem;
+
+  /* Paper texture effect */
+  --paper-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.03);
+  --paper-shadow-lg: 0 2px 8px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06);
+  --paper-shadow-xl: 0 4px 16px rgba(0, 0, 0, 0.05), 0 16px 48px rgba(0, 0, 0, 0.08);
+
+  /* Sidebar */
+  --sidebar-background: 0 0% 98%;
+  --sidebar-foreground: 0 0% 25%;
+  --sidebar-primary: 0 0% 20%;
+  --sidebar-primary-foreground: 0 0% 98%;
+  --sidebar-accent: 0 0% 96%;
+  --sidebar-accent-foreground: 0 0% 25%;
+  --sidebar-border: 0 0% 92%;
+  --sidebar-ring: 220 90% 55%;
+}
+
+.dark {
+  --background: 0 0% 8%;
+  --foreground: 0 0% 98%;
+
+  --card: 0 0% 15%;
+  --card-foreground: 0 0% 98%;
+
+  --popover: 0 0% 15%;
+  --popover-foreground: 0 0% 98%;
+
+  --primary: 0 0% 95%;
+  --primary-foreground: 0 0% 8%;
+
+  --secondary: 0 0% 25%;
+  --secondary-foreground: 0 0% 95%;
+
+  --muted: 0 0% 30%;
+  --muted-foreground: 0 0% 75%;
+
+  --accent: 220 85% 60%;
+  --accent-foreground: 0 0% 100%;
+
+  --highlight: 220 50% 20%;
+  --highlight-foreground: 220 85% 75%;
+
+  --destructive: 0 72% 60%;
+  --destructive-foreground: 0 0% 98%;
+
+  --border: 0 0% 30%;
+  --input: 0 0% 32%;
+  --ring: 220 85% 60%;
+
+  --radius: 0.75rem;
+
+  --sidebar-background: 0 0% 10%;
+  --sidebar-foreground: 0 0% 95%;
+  --sidebar-primary: 220 85% 60%;
+  --sidebar-primary-foreground: 0 0% 8%;
+  --sidebar-accent: 0 0% 25%;
+  --sidebar-accent-foreground: 0 0% 95%;
+  --sidebar-border: 0 0% 25%;
+  --sidebar-ring: 220 85% 60%;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* QRCraft Design System - Craft.do Inspired */
-
-@layer base {
-  :root {
-    /* Clean neutral background #FAFAFA */
-    --background: 0 0% 98%;
-    --foreground: 0 0% 15%;
-
-    /* Card surfaces - pure white */
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 15%;
-
-    /* Popover matching cards */
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 15%;
-
-    /* Primary - Pure dark gray */
-    --primary: 0 0% 20%;
-    --primary-foreground: 0 0% 98%;
-
-    /* Secondary - Light gray */
-    --secondary: 0 0% 96%;
-    --secondary-foreground: 0 0% 25%;
-
-    /* Muted - Gentle gray */
-    --muted: 0 0% 94%;
-    --muted-foreground: 0 0% 45%;
-
-    /* Accent - Blue */
-    --accent: 220 90% 55%;
-    --accent-foreground: 0 0% 100%;
-
-    /* Highlight - Light blue */
-    --highlight: 220 100% 97%;
-    --highlight-foreground: 220 80% 40%;
-
-    /* Destructive */
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 98%;
-
-    /* Borders & inputs */
-    --border: 0 0% 90%;
-    --input: 0 0% 92%;
-    --ring: 220 90% 55%;
-
-    --radius: 0.75rem;
-
-    /* Paper texture effect */
-    --paper-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.03);
-    --paper-shadow-lg: 0 2px 8px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06);
-    --paper-shadow-xl: 0 4px 16px rgba(0, 0, 0, 0.05), 0 16px 48px rgba(0, 0, 0, 0.08);
-
-    /* Sidebar */
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 0 0% 25%;
-    --sidebar-primary: 0 0% 20%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 0 0% 96%;
-    --sidebar-accent-foreground: 0 0% 25%;
-    --sidebar-border: 0 0% 92%;
-    --sidebar-ring: 220 90% 55%;
-  }
-
-  .dark {
-    --background: 0 0% 8%;
-    --foreground: 0 0% 92%;
-
-    --card: 0 0% 12%;
-    --card-foreground: 0 0% 92%;
-
-    --popover: 0 0% 12%;
-    --popover-foreground: 0 0% 92%;
-
-    --primary: 0 0% 92%;
-    --primary-foreground: 0 0% 8%;
-
-    --secondary: 0 0% 18%;
-    --secondary-foreground: 0 0% 85%;
-
-    --muted: 0 0% 20%;
-    --muted-foreground: 0 0% 60%;
-
-    --accent: 220 85% 55%;
-    --accent-foreground: 0 0% 100%;
-
-    --highlight: 220 50% 15%;
-    --highlight-foreground: 220 85% 60%;
-
-    --destructive: 0 62% 45%;
-    --destructive-foreground: 0 0% 92%;
-
-    --border: 0 0% 20%;
-    --input: 0 0% 22%;
-    --ring: 220 85% 55%;
-
-    --sidebar-background: 0 0% 10%;
-    --sidebar-foreground: 0 0% 85%;
-    --sidebar-primary: 220 85% 55%;
-    --sidebar-primary-foreground: 0 0% 8%;
-    --sidebar-accent: 0 0% 18%;
-    --sidebar-accent-foreground: 0 0% 85%;
-    --sidebar-border: 0 0% 18%;
-    --sidebar-ring: 220 85% 55%;
-  }
-}
 
 @layer base {
   * {
@@ -211,11 +212,11 @@
     font-size: 16px;
     font-weight: 400;
     line-height: 24px;
-    color: #171717;
+    color: hsl(var(--foreground));
   }
 
   .input-field::placeholder {
-    color: #737373;
+    color: hsl(var(--muted-foreground));
   }
 
   /* Remove blue focus ring from inputs and textareas */
@@ -225,7 +226,7 @@
   textarea:focus-visible {
     outline: none;
     box-shadow: none;
-    border-color: #D4D4D4;
+    border-color: hsl(var(--border));
   }
 
   /* Consistent label styling */
@@ -234,7 +235,7 @@
     font-size: 14px;
     font-weight: 500;
     line-height: 20px;
-    color: #171717;
+    color: hsl(var(--foreground));
   }
 }
 
@@ -249,6 +250,10 @@
     background: #EEF2FF;
     border: 1px solid transparent;
     box-shadow: 0 134px 38px 0 rgba(0, 0, 0, 0.00), 0 86px 34px 0 rgba(0, 0, 0, 0.00), 0 48px 29px 0 rgba(0, 0, 0, 0.01), 0 21px 21px 0 rgba(0, 0, 0, 0.02), 0 5px 12px 0 rgba(0, 0, 0, 0.02);
+  }
+
+  .dark .gradient-border-selected {
+    background: hsl(var(--highlight));
   }
 
   .gradient-border-selected::before {

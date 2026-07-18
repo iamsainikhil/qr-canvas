@@ -80,7 +80,7 @@ const ColorSwatch = ({
       "w-9 h-9",
       isSelected
         ? "gradient-border-selected"
-        : "border-transparent hover:bg-[#F5F5F5]/50"
+        : "border-transparent hover:bg-muted/50"
     )}
   >
     <div 
@@ -168,16 +168,16 @@ function ColorPickerPopover({
         align="end"
       >
         <Tabs defaultValue="swatches" className="w-[220px] min-h-[240px]">
-          <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-[#F5F5F5] rounded-full">
+          <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-muted rounded-full">
             <TabsTrigger 
               value="swatches" 
-              className="text-sm font-medium rounded-full data-[state=active]:bg-white data-[state=active]:text-[#587FED] data-[state=active]:shadow-sm text-[#737373]"
+              className="text-sm font-medium rounded-full data-[state=active]:bg-background data-[state=active]:text-accent data-[state=active]:shadow-sm text-muted-foreground"
             >
               Swatches
             </TabsTrigger>
             <TabsTrigger 
               value="custom" 
-              className="text-sm font-medium rounded-full data-[state=active]:bg-white data-[state=active]:text-[#587FED] data-[state=active]:shadow-sm text-[#737373]"
+              className="text-sm font-medium rounded-full data-[state=active]:bg-background data-[state=active]:text-accent data-[state=active]:shadow-sm text-muted-foreground"
             >
               Custom
             </TabsTrigger>

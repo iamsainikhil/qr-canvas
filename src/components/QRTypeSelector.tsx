@@ -39,7 +39,7 @@ interface QRTypeSelectorProps {
 export function QRTypeSelector({ selectedType, onTypeChange }: QRTypeSelectorProps) {
   return (
     <div>
-      <h2 className="font-heading text-[20px] font-bold tracking-tight text-[#171717] leading-[120%] mb-4">Select QR type</h2>
+      <h2 className="font-heading text-[20px] font-bold tracking-tight text-foreground leading-[120%] mb-4">Select QR type</h2>
       <div className="flex flex-col gap-1">
         {qrTypes.map((type, index) => (
           <button
@@ -49,7 +49,7 @@ export function QRTypeSelector({ selectedType, onTypeChange }: QRTypeSelectorPro
               "w-full flex items-center gap-3 px-3 rounded-xl transition-all duration-200 border",
               selectedType === type.id
                 ? "gradient-border-selected"
-                : "border-transparent hover:bg-[#F0F0F0]"
+                : "border-transparent hover:bg-muted"
             )}
             style={{ height: 80 }}
           >

@@ -101,14 +101,7 @@ interface ThemePresetsProps {
 }
 
 export function ThemePresets({ selectedTheme, onThemeChange, onThemeUnselect, currentFgColor, currentBgColor, currentPatternColor, currentBgGradient }: ThemePresetsProps) {
-  const [customThemes, setCustomThemes] = useState<ThemePreset[]>(() => {
-    try {
-      const stored = localStorage.getItem('qr-customThemes');
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [customThemes, setCustomThemes] = useState<ThemePreset[]>([]);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [themeName, setThemeName] = useState('');
   const [editBgColor, setEditBgColor] = useState('#FFFFFF');
@@ -178,7 +171,6 @@ export function ThemePresets({ selectedTheme, onThemeChange, onThemeUnselect, cu
     
     const updated = [...customThemes, newTheme];
     setCustomThemes(updated);
-    localStorage.setItem('qr-customThemes', JSON.stringify(updated));
     setThemeName('');
     setShowSaveDialog(false);
     onThemeChange(newTheme);
@@ -187,7 +179,6 @@ export function ThemePresets({ selectedTheme, onThemeChange, onThemeUnselect, cu
   const handleDeleteCustomTheme = (id: string) => {
     const updated = customThemes.filter(t => t.id !== id);
     setCustomThemes(updated);
-    localStorage.setItem('qr-customThemes', JSON.stringify(updated));
   };
 
   return (
@@ -201,7 +192,7 @@ export function ThemePresets({ selectedTheme, onThemeChange, onThemeUnselect, cu
                 "w-full flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-200 border",
                 selectedTheme === theme.id
                   ? "gradient-border-selected"
-                  : "border-[#E5E5E5] bg-white hover:bg-[#F5F5F5]/50"
+                  : "border-border bg-card hover:bg-muted/50"
               )}
             >
               <img 
@@ -231,7 +222,7 @@ export function ThemePresets({ selectedTheme, onThemeChange, onThemeUnselect, cu
         
         <button
           onClick={openNewThemeDialog}
-          className="flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-200 border border-[#E5E5E5] bg-white hover:bg-[#F5F5F5]/50"
+          className="flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-200 border border-border bg-card hover:bg-muted/50"
           title="Create a new custom theme"
         >
           <Plus size={20} className="text-muted-foreground" />
@@ -240,7 +231,7 @@ export function ThemePresets({ selectedTheme, onThemeChange, onThemeUnselect, cu
       </div>
 
       {showSaveDialog && (
-        <div className="border border-[#E5E5E5] rounded-xl p-3 bg-white space-y-3">
+        <div className="border border-border rounded-xl p-3 bg-card space-y-3">
           <p className="text-xs font-semibold text-foreground">New Theme</p>
 
           {/* Color editors */}
