@@ -8,6 +8,7 @@ import {
   onSnapshot,
   orderBy,
   query,
+  writeBatch,
   setDoc,
 } from 'firebase/firestore';
 
@@ -16,6 +17,7 @@ import {
   SavedQRCode,
   SavedQRCodeStyleSnapshot,
   buildTrackingUrl,
+  buildUpdatedSavedQrCodeDocument,
   createSavedQrCodeDocument,
   generateShortCode,
   isTrackableQrType,
@@ -109,6 +111,43 @@ export const saveQrCodeForOwner = async ({ ownerUid, type, value, style }: SaveQ
   }
 
   return qrDocument;
+};
+
+export const updateQrCodeDestinationForOwner = async ({
+  ownerUid,
+  qr,
+  value,
+}: {
+  ownerUid: string;
+  qr: SavedQRCode;
+  value: string;
+}) => {
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    throw new Error('QR destination is required');
+  }
+
+  const db = requireFirestore();
+  const batch = writeBatch(db);
+  const updatedQr = buildUpdatedSavedQrCodeDocument({ item: qr, value: trimmedValue });
+
+  batch.set(userQrDocSafe(ownerUid, qr.id), updatedQr);
+
+  if (qr.shortCode) {
+    batch.set(routeDocSafe(qr.shortCode), {
+      shortCode: qr.shortCode,
+      ownerUid,
+      qrId: qr.id,
+      targetValue: updatedQr.targetValue,
+      active: true,
+      createdAt: qr.createdAt,
+      updatedAt: updatedQr.updatedAt,
+    });
+  }
+
+  await batch.commit();
+
+  return updatedQr;
 };
 
 export const subscribeToOwnerQrCodes = (
