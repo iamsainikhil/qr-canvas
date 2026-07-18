@@ -118,6 +118,7 @@ Frontend:    React 18 + TypeScript + Vite + Tailwind CSS + shadcn/ui
 QR Engine:   qr-code-styling
 Auth:        Firebase Auth (Google, owner-only mode)
 Database:    Firestore (QR library, scan events, route mappings)
+Storage:     Firebase Storage (uploaded destination files for image/pdf/mp3 QR types)
 Redirect:    Vercel Serverless Function (/api/r/[shortCode].ts)
 Analytics:   Firebase Analytics (page views) + custom scan tracking
 ```
@@ -130,6 +131,7 @@ flowchart LR
   UI --> QR["QR Preview Engine<br/>qr-code-styling"]
   UI --> FA["Firebase Auth<br/>owner-only login"]
   UI --> FS["Firestore<br/>QR library"]
+  UI --> FG["Firebase Storage<br/>destination file uploads<br/>image/pdf/mp3"]
   UI --> DB["Dashboard<br/>/dashboard"]
   DB --> FS
   SC[Scanner] --> RT["/r/:shortCode endpoint"]
@@ -145,20 +147,35 @@ src/
 ├── pages/
 │   ├── Index.tsx          # Main QR builder & state orchestration
 │   ├── Dashboard.tsx      # Saved QR library, analytics, edit destination
-│   └── ScanError.tsx      # Animated error page for failed redirects
+│   ├── ScanError.tsx      # Animated error page for failed redirects
+│   └── NotFound.tsx       # 404 page
 ├── components/
 │   ├── QRTypeSelector.tsx # QR type picker
-│   ├── QRStyleTabs.tsx    # Content + style controls
+│   ├── QRStyleTabs.tsx    # Content + style controls (incl. file upload UI for image/pdf/mp3)
 │   ├── QRPreview.tsx      # Live QR render & download
 │   ├── ThemePresets.tsx   # Built-in & custom themes
 │   ├── PrivateAppGate.tsx # Owner-only Google auth gate
+│   ├── QRControls.tsx     # QR control panel layout
+│   ├── QRScanner.tsx      # Scan QR from webcam
 │   └── ui/                # shadcn/ui primitives
 ├── lib/
 │   ├── firestoreQrCodes.ts # Firestore CRUD + scan events + update destination
 │   ├── savedQrCodes.ts     # Type definitions
-│   └── authOwner.ts        # Owner UID helper
+│   ├── authOwner.ts        # Owner UID helper
+│   ├── fontRegistry.ts     # Google Fonts loading
+│   └── utils.ts            # Shared utilities
+├── integrations/
+│   └── firebase/
+│       └── client.ts       # Firebase init (Auth, Firestore, Storage, Analytics)
+├── hooks/
+│   └── use-toast.ts        # Toast notification hook
+├── assets/                 # QR-type icons (webp)
+├── styles/                 # Global styles
+└── test/                   # Test setup
 api/
-└── r/[shortCode].ts       # Scan tracking redirect endpoint
+├── r/[shortCode].ts       # Scan tracking redirect endpoint
+└── _lib/                   # API shared utilities
+storage.rules              # Firebase Storage rules (destination file uploads)
 ```
 
 ---
@@ -228,7 +245,9 @@ With this enabled, only the Google user matching `VITE_OWNER_EMAIL` can sign in 
 
 ---
 
-## Firestore Security Rules
+## Firebase Security Rules
+
+### Firestore
 
 The repo includes strict [single-owner rules](firestore.rules) covering:
 
@@ -244,6 +263,21 @@ firebase deploy --only firestore:rules
 ```
 
 Or paste `firestore.rules` directly in the Firebase Console.
+
+### Firebase Storage
+
+The repo includes [Storage rules](storage.rules) for QR destination file uploads:
+
+- `users/{uid}/qr-targets/{qrType}/{fileName}` — publicly readable, owner-only write
+- All other paths denied by default
+
+Deploy via Firebase CLI:
+
+```bash
+firebase deploy --only storage:rules
+```
+
+Or paste `storage.rules` directly in the Firebase Console.
 
 ---
 
