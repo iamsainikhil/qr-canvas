@@ -42,7 +42,7 @@ export function SizeSelector({ value, onChange }: SizeSelectorProps) {
                   "py-3 px-4 rounded-2xl text-sm font-medium transition-all duration-200 border",
                   selectedPreset.id === preset.id
                     ? "gradient-border-selected"
-                    : "border-[#E5E5E5] bg-white hover:bg-[#F5F5F5]/50"
+                    : "border-border bg-card hover:bg-muted/50"
                 )}
               >
                 {preset.label}
