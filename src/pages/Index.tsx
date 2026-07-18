@@ -1,13 +1,16 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { QRPreview } from '@/components/QRPreview';
 import { QRTypeSelector, QRType } from '@/components/QRTypeSelector';
 import { QRStyleTabs, FrameStyle } from '@/components/QRStyleTabs';
 import { BodyShape } from '@/components/BodyShapeSelector';
+import { Link } from 'react-router-dom';
+import { LayoutDashboard } from 'lucide-react';
 
-import { useLocalStorage } from '@/hooks/use-local-storage';
 import { defaultLogoStyleOptions, LogoStyleOptions } from '@/components/logoStyle';
 import { defaultScanLabelStyle, ScanLabelStyleOptions } from '@/components/scanLabelStyle';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 import {
   Select,
   SelectContent,
@@ -27,6 +30,8 @@ import pdfIcon from '@/assets/qr-type-pdf.webp';
 import mp3Icon from '@/assets/qr-type-mp3.webp';
 import appIcon from '@/assets/qr-type-app.webp';
 import videoIcon from '@/assets/qr-type-video.webp';
+import { getCurrentOwnerUid } from '@/lib/authOwner';
+import { saveQrCodeForOwner, subscribeToOwnerQrCodes } from '@/lib/firestoreQrCodes';
 
 export type LogoSource = 'none' | 'upload' | 'favicon' | 'logo-dev';
 export type LogoDevLookupMode = 'domain' | 'name' | 'ticker' | 'crypto' | 'isin';
@@ -111,19 +116,17 @@ const qrTypeOptions: { id: QRType; label: string; image: string }[] = [
 
 const Index = () => {
   const logoDevPublishableKey = import.meta.env.VITE_LOGO_DEV_PUBLISHABLE_KEY;
+  const { toast } = useToast();
 
   // QR Type
   const [qrType, setQrType] = useState<QRType>('url');
-  
-  // Separate values for each type
-  const [urlValue, setUrlValue] = useState('');
-  const [textValue, setTextValue] = useState('');
-  const [imageValue, setImageValue] = useState('');
-  const [pdfValue, setPdfValue] = useState('');
-  const [mp3Value, setMp3Value] = useState('');
-  const [appValue, setAppValue] = useState('');
-  const [videoValue, setVideoValue] = useState('');
-  
+
+  // Per-type content values (keyed by QR type)
+  const [typeValues, setTypeValues] = useState<Partial<Record<QRType, string>>>({});
+
+  const currentValue = typeValues[qrType] ?? '';
+  const setCurrentValue = (v: string) => setTypeValues(prev => ({ ...prev, [qrType]: v }));
+
   // WiFi specific
   const [wifiSSID, setWifiSSID] = useState('');
   const [wifiPassword, setWifiPassword] = useState('');
@@ -138,62 +141,41 @@ const Index = () => {
   const [smsPhone, setSmsPhone] = useState('');
   const [smsMessage, setSmsMessage] = useState('');
   
-  // Styling - persisted to localStorage
-  const [frameStyle, setFrameStyle] = useLocalStorage<FrameStyle>('qr-frameStyle', 'rounded-lg');
-  const [fgColor, setFgColor] = useLocalStorage('qr-fgColor', '#1A1A1A');
-  const [bgColor, setBgColor] = useLocalStorage('qr-bgColor', '#FFFFFF');
-  const [patternColor, setPatternColor] = useLocalStorage<string | null>('qr-patternColor', null);
-  const [bgGradient, setBgGradient] = useLocalStorage<string | null>('qr-bgGradient', null);
-  const [logo, setLogo] = useLocalStorage<string | null>('qr-logo', null);
-  const [logoSource, setLogoSource] = useLocalStorage<LogoSource>('qr-logoSource', 'favicon');
-  const [logoDevMode, setLogoDevMode] = useLocalStorage<LogoDevLookupMode>('qr-logoDevMode', 'domain');
-  const [logoDevQuery, setLogoDevQuery] = useLocalStorage('qr-logoDevQuery', '');
-  const [bodyShape, setBodyShape] = useLocalStorage<BodyShape>('qr-bodyShape', 'dots');
-  const [qrSize, setQrSize] = useLocalStorage('qr-qrSize', 500);
-  const [scanText, setScanText] = useLocalStorage('qr-scanText', '');
-  const [scanLabelStyle, setScanLabelStyle] = useLocalStorage<ScanLabelStyleOptions>('qr-scanLabelStyle', defaultScanLabelStyle);
-  const [logoStyle, setLogoStyle] = useLocalStorage<LogoStyleOptions>('qr-logoStyle', defaultLogoStyleOptions);
+  // Styling - in-memory state (no localStorage persistence)
+  const [frameStyle, setFrameStyle] = useState<FrameStyle>('rounded-lg');
+  const [fgColor, setFgColor] = useState('#1A1A1A');
+  const [bgColor, setBgColor] = useState('#FFFFFF');
+  const [patternColor, setPatternColor] = useState<string | null>(null);
+  const [bgGradient, setBgGradient] = useState<string | null>(null);
+  const [logo, setLogo] = useState<string | null>(null);
+  const [logoSource, setLogoSource] = useState<LogoSource>('favicon');
+  const [logoDevMode, setLogoDevMode] = useState<LogoDevLookupMode>('domain');
+  const [logoDevQuery, setLogoDevQuery] = useState('');
+  const [bodyShape, setBodyShape] = useState<BodyShape>('dots');
+  const [qrSize, setQrSize] = useState(500);
+  const [scanText, setScanText] = useState('');
+  const [scanLabelStyle, setScanLabelStyle] = useState<ScanLabelStyleOptions>(defaultScanLabelStyle);
+  const [logoStyle, setLogoStyle] = useState<LogoStyleOptions>(defaultLogoStyleOptions);
+  const [savedCount, setSavedCount] = useState(0);
 
-  // Get current value based on type
-  const currentValue = useMemo(() => {
-    switch (qrType) {
-      case 'url': return urlValue;
-      case 'text': return textValue;
-      case 'image': return imageValue;
-      case 'pdf': return pdfValue;
-      case 'mp3': return mp3Value;
-      case 'app': return appValue;
-      case 'video': return videoValue;
-      default: return '';
-    }
-  }, [qrType, urlValue, textValue, imageValue, pdfValue, mp3Value, appValue, videoValue]);
+  useEffect(() => {
+    const ownerUid = getCurrentOwnerUid();
+    if (!ownerUid) return;
 
-  // Set value based on current type
-  const setCurrentValue = (newValue: string) => {
-    switch (qrType) {
-      case 'url': setUrlValue(newValue); break;
-      case 'text': setTextValue(newValue); break;
-      case 'image': setImageValue(newValue); break;
-      case 'pdf': setPdfValue(newValue); break;
-      case 'mp3': setMp3Value(newValue); break;
-      case 'app': setAppValue(newValue); break;
-      case 'video': setVideoValue(newValue); break;
-    }
-  };
+    const unsubscribe = subscribeToOwnerQrCodes(ownerUid, (items) => {
+      setSavedCount(items.length);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   // Generate QR value based on type
   const qrValue = useMemo(() => {
     switch (qrType) {
-      case 'url': return urlValue;
-      case 'text': return textValue;
-      case 'image': return imageValue;
-      case 'pdf': return pdfValue;
-      case 'mp3': return mp3Value;
-      case 'app': return appValue;
       case 'wifi':
         if (!wifiSSID) return '';
         return `WIFI:T:${wifiEncryption};S:${wifiSSID};P:${wifiPassword};;`;
-      case 'email':
+      case 'email': {
         if (!emailAddress) return '';
         let emailStr = `mailto:${emailAddress}`;
         const params: string[] = [];
@@ -201,35 +183,39 @@ const Index = () => {
         if (emailBody) params.push(`body=${encodeURIComponent(emailBody)}`);
         if (params.length > 0) emailStr += `?${params.join('&')}`;
         return emailStr;
-      case 'sms':
+      }
+      case 'sms': {
         if (!smsPhone) return '';
         let smsStr = `sms:${smsPhone}`;
         if (smsMessage) smsStr += `?body=${encodeURIComponent(smsMessage)}`;
         return smsStr;
-      case 'video':
-        return videoValue;
+      }
       default:
-        return '';
+        return currentValue;
     }
-  }, [qrType, urlValue, textValue, imageValue, pdfValue, mp3Value, appValue, videoValue, wifiSSID, wifiPassword, wifiEncryption, emailAddress, emailSubject, emailBody, smsPhone, smsMessage]);
+  }, [qrType, currentValue, wifiSSID, wifiPassword, wifiEncryption, emailAddress, emailSubject, emailBody, smsPhone, smsMessage]);
 
   // Derive an auto-favicon URL for URL-type QR codes when the user hasn't
   // uploaded their own logo.
   const autoFaviconUrl = useMemo(() => {
-    if (qrType !== 'url' || !urlValue) return null;
+    if (qrType !== 'url' || !currentValue) return null;
     try {
-      const withProto = /^https?:\/\//i.test(urlValue) ? urlValue : `https://${urlValue}`;
+      const withProto = /^https?:\/\//i.test(currentValue) ? currentValue : `https://${currentValue}`;
       const host = new URL(withProto).hostname;
       if (!host) return null;
       return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=128`;
     } catch {
       return null;
     }
-  }, [qrType, urlValue]);
+  }, [qrType, currentValue]);
 
   const derivedLogoDevLookup = useMemo(
-    () => deriveLogoDevLookup(qrType, { urlValue, appValue, emailAddress }),
-    [appValue, emailAddress, qrType, urlValue],
+    () => deriveLogoDevLookup(qrType, {
+      urlValue: typeValues['url'] ?? '',
+      appValue: typeValues['app'] ?? '',
+      emailAddress,
+    }),
+    [typeValues, emailAddress, qrType],
   );
 
   const effectiveLogoDevMode = logoDevQuery.trim() ? logoDevMode : (derivedLogoDevLookup?.mode ?? logoDevMode);
@@ -253,6 +239,55 @@ const Index = () => {
     }
   }, [autoFaviconUrl, logo, logoDevUrl, logoSource]);
 
+  const saveCurrentQrCode = async () => {
+    const value = qrValue.trim();
+    if (!value) return;
+
+    const ownerUid = getCurrentOwnerUid();
+    if (!ownerUid) {
+      toast({
+        title: 'Sign in required',
+        description: 'Owner session is missing. Please sign in again.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const saved = await saveQrCodeForOwner({
+        ownerUid,
+        type: qrType,
+        value,
+        style: {
+          fgColor,
+          bgColor,
+          patternColor,
+          bgGradient,
+          frameStyle,
+          bodyShape,
+          logo: effectiveLogo,
+          logoStyle,
+          scanText,
+          scanLabelStyle,
+        },
+      });
+
+      toast({
+        title: 'Saved to dashboard',
+        description: saved.trackingUrl
+          ? 'Saved with scan tracking. Use dashboard tracking links for analytics.'
+          : 'Your QR code is now in the dashboard library.',
+      });
+    } catch (error) {
+      const description = error instanceof Error ? error.message : 'Could not save QR code';
+      toast({
+        title: 'Save failed',
+        description,
+        variant: 'destructive',
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen w-full bg-background xl:flex xl:h-screen xl:overflow-hidden">
       {/* Left Sidebar - QR Type Selector */}
@@ -267,6 +302,19 @@ const Index = () => {
 
       {/* Main Content */}
       <div className="flex min-h-screen flex-col xl:h-screen xl:min-h-0 xl:flex-1">
+        <div className="flex items-center justify-between border-b border-border bg-background px-4 py-3 sm:px-6 xl:px-8">
+          <div>
+            <h1 className="font-heading text-xl font-bold text-foreground">QR Canvas</h1>
+            <p className="text-sm text-muted-foreground">Create and save reusable QR codes</p>
+          </div>
+          <Button asChild variant="paper" className="rounded-full">
+            <Link to="/dashboard" className="inline-flex items-center gap-2">
+              <LayoutDashboard className="h-4 w-4" />
+              Dashboard ({savedCount})
+            </Link>
+          </Button>
+        </div>
+
         {/* Mobile QR Type Selector - Dropdown */}
         <div className="w-full max-w-full overflow-hidden border-b border-border bg-background p-4 xl:hidden">
           <h2 className="font-heading text-[20px] font-bold tracking-tight text-[#171717] leading-[120%] mb-3">Select QR type</h2>
@@ -324,6 +372,7 @@ const Index = () => {
                 onDownloadSizeChange={setQrSize}
                 scanText={scanText}
                 scanLabelStyle={scanLabelStyle}
+                onSave={saveCurrentQrCode}
               />
             </div>
           </main>
@@ -350,8 +399,6 @@ const Index = () => {
               onSmsPhoneChange={setSmsPhone}
               smsMessage={smsMessage}
               onSmsMessageChange={setSmsMessage}
-              videoValue={videoValue}
-              onVideoValueChange={setVideoValue}
               frameStyle={frameStyle}
               onFrameStyleChange={setFrameStyle}
               fgColor={fgColor}

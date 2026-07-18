@@ -101,14 +101,7 @@ interface ThemePresetsProps {
 }
 
 export function ThemePresets({ selectedTheme, onThemeChange, onThemeUnselect, currentFgColor, currentBgColor, currentPatternColor, currentBgGradient }: ThemePresetsProps) {
-  const [customThemes, setCustomThemes] = useState<ThemePreset[]>(() => {
-    try {
-      const stored = localStorage.getItem('qr-customThemes');
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [customThemes, setCustomThemes] = useState<ThemePreset[]>([]);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [themeName, setThemeName] = useState('');
   const [editBgColor, setEditBgColor] = useState('#FFFFFF');
@@ -178,7 +171,6 @@ export function ThemePresets({ selectedTheme, onThemeChange, onThemeUnselect, cu
     
     const updated = [...customThemes, newTheme];
     setCustomThemes(updated);
-    localStorage.setItem('qr-customThemes', JSON.stringify(updated));
     setThemeName('');
     setShowSaveDialog(false);
     onThemeChange(newTheme);
@@ -187,7 +179,6 @@ export function ThemePresets({ selectedTheme, onThemeChange, onThemeUnselect, cu
   const handleDeleteCustomTheme = (id: string) => {
     const updated = customThemes.filter(t => t.id !== id);
     setCustomThemes(updated);
-    localStorage.setItem('qr-customThemes', JSON.stringify(updated));
   };
 
   return (

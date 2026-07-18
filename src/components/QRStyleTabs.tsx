@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Upload, X, Check, ChevronsUpDown, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { QRType } from './QRTypeSelector';
-import { FileUploadInput } from './FileUploadInput';
 import { ThemePresets, defaultThemePresets, ThemePreset } from './ThemePresets';
 import { BodyShapeSelector, BodyShape } from './BodyShapeSelector';
 
@@ -41,8 +40,6 @@ interface QRStyleTabsProps {
   onSmsPhoneChange: (phone: string) => void;
   smsMessage: string;
   onSmsMessageChange: (message: string) => void;
-  videoValue: string;
-  onVideoValueChange: (value: string) => void;
   frameStyle: FrameStyle;
   onFrameStyleChange: (style: FrameStyle) => void;
   fgColor: string;
@@ -123,8 +120,6 @@ export function QRStyleTabs({
   onSmsPhoneChange,
   smsMessage,
   onSmsMessageChange,
-  videoValue,
-  onVideoValueChange,
   frameStyle,
   onFrameStyleChange,
   fgColor,
@@ -157,7 +152,7 @@ export function QRStyleTabs({
   logoDevUrl,
   isLogoDevConfigured,
 }: QRStyleTabsProps) {
-  const [selectedTheme, setSelectedTheme] = useState('paper');
+  const [selectedTheme, setSelectedTheme] = useState('');
   const [fontPickerOpen, setFontPickerOpen] = useState(false);
   const [availableFonts, setAvailableFonts] = useState<string[]>(defaultFontFamilies);
   const [isFontsLoading, setIsFontsLoading] = useState(false);
@@ -289,22 +284,35 @@ export function QRStyleTabs({
   const inputClassName = "h-12 rounded-xl bg-background border-border input-field";
   const textareaClassName = "w-full p-3 rounded-xl bg-background border border-border resize-none focus:outline-none focus:ring-2 focus:ring-ring input-field";
 
+  // Config for URL-like input types (label, placeholder, hint)
+  const urlInputConfigs: Partial<Record<QRType, { label: string; placeholder: string; hint: string }>> = {
+    url:   { label: 'Enter your link here', placeholder: 'https://example.com', hint: 'Your QR code will generate automatically' },
+    image: { label: 'Image URL', placeholder: 'https://example.com/image.png', hint: 'Paste a public image link for your QR destination' },
+    pdf:   { label: 'PDF URL', placeholder: 'https://example.com/file.pdf', hint: 'Paste a public PDF link for your QR destination' },
+    mp3:   { label: 'MP3 URL', placeholder: 'https://example.com/audio.mp3', hint: 'Paste a public MP3 link for your QR destination' },
+    app:   { label: 'App Store or Play Store URL', placeholder: 'https://apps.apple.com/... or https://play.google.com/...', hint: 'Link to your app on App Store or Google Play' },
+    video: { label: 'YouTube Video URL', placeholder: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', hint: 'Paste your YouTube video link here' },
+  };
+
   const renderInputFields = () => {
+    const urlConfig = urlInputConfigs[qrType];
+    if (urlConfig) {
+      return (
+        <div className="space-y-2">
+          <Label className="text-sm text-muted-foreground">{urlConfig.label}</Label>
+          <Input
+            type="url"
+            placeholder={urlConfig.placeholder}
+            value={value}
+            onChange={(e) => onValueChange(e.target.value)}
+            className={inputClassName}
+          />
+          <p className="text-sm text-muted-foreground">{urlConfig.hint}</p>
+        </div>
+      );
+    }
+
     switch (qrType) {
-      case 'url':
-        return (
-          <div className="space-y-2">
-            <Label className="text-sm text-muted-foreground">Enter your link here</Label>
-            <Input
-              type="url"
-              placeholder="https://example.com"
-              value={value}
-              onChange={(e) => onValueChange(e.target.value)}
-              className={inputClassName}
-            />
-            <p className="text-sm text-muted-foreground">Your QR code will generate automatically</p>
-          </div>
-        );
       case 'text':
         return (
           <div className="space-y-2">
@@ -417,58 +425,6 @@ export function QRStyleTabs({
                 className={cn(textareaClassName, "h-20")}
               />
             </div>
-          </div>
-        );
-      case 'video':
-        return (
-          <div className="space-y-2">
-            <Label className="text-sm text-muted-foreground">YouTube Video URL</Label>
-            <Input
-              type="url"
-              placeholder="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-              value={videoValue}
-              onChange={(e) => onVideoValueChange(e.target.value)}
-              className={inputClassName}
-            />
-            <p className="text-sm text-muted-foreground">Paste your YouTube video link here</p>
-          </div>
-        );
-      case 'image':
-        return (
-          <FileUploadInput
-            type="image"
-            value={value}
-            onValueChange={onValueChange}
-          />
-        );
-      case 'pdf':
-        return (
-          <FileUploadInput
-            type="pdf"
-            value={value}
-            onValueChange={onValueChange}
-          />
-        );
-      case 'mp3':
-        return (
-          <FileUploadInput
-            type="mp3"
-            value={value}
-            onValueChange={onValueChange}
-          />
-        );
-      case 'app':
-        return (
-          <div className="space-y-2">
-            <Label className="text-sm text-muted-foreground">App Store or Play Store URL</Label>
-            <Input
-              type="url"
-              placeholder="https://apps.apple.com/... or https://play.google.com/..."
-              value={value}
-              onChange={(e) => onValueChange(e.target.value)}
-              className={inputClassName}
-            />
-            <p className="text-sm text-muted-foreground">Link to your app on App Store or Google Play</p>
           </div>
         );
       default:
