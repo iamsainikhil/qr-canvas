@@ -4,13 +4,14 @@ import { QRTypeSelector, QRType } from '@/components/QRTypeSelector';
 import { QRStyleTabs, FrameStyle } from '@/components/QRStyleTabs';
 import { BodyShape } from '@/components/BodyShapeSelector';
 import { Link } from 'react-router-dom';
-import { LayoutDashboard } from 'lucide-react';
+import { LayoutDashboard, Moon, Sun } from 'lucide-react';
 
 import { defaultLogoStyleOptions, LogoStyleOptions } from '@/components/logoStyle';
 import { defaultScanLabelStyle, ScanLabelStyleOptions } from '@/components/scanLabelStyle';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { useTheme } from '@/hooks/use-theme';
 import {
   Select,
   SelectContent,
@@ -117,6 +118,7 @@ const qrTypeOptions: { id: QRType; label: string; image: string }[] = [
 const Index = () => {
   const logoDevPublishableKey = import.meta.env.VITE_LOGO_DEV_PUBLISHABLE_KEY;
   const { toast } = useToast();
+  const { theme, toggleTheme } = useTheme();
 
   // QR Type
   const [qrType, setQrType] = useState<QRType>('url');
@@ -290,36 +292,54 @@ const Index = () => {
 
   return (
     <div className="min-h-screen w-full bg-background xl:flex xl:h-screen xl:overflow-hidden">
-      {/* Left Sidebar - QR Type Selector */}
-      <aside className="hidden w-72 flex-shrink-0 bg-background pt-8 pl-4 pr-2 xl:block">
-        <ScrollArea className="h-[calc(100vh-2rem)] pr-2">
-          <QRTypeSelector
-            selectedType={qrType}
-            onTypeChange={setQrType}
-          />
-        </ScrollArea>
-      </aside>
+        {/* Left Sidebar - QR Type Selector */}
+        <aside className="hidden w-72 flex-shrink-0 bg-background pt-8 pl-4 pr-2 xl:block">
+          <ScrollArea className="h-[calc(100vh-2rem)] pr-2">
+            <QRTypeSelector
+              selectedType={qrType}
+              onTypeChange={setQrType}
+            />
+          </ScrollArea>
+        </aside>
 
-      {/* Main Content */}
-      <div className="flex min-h-screen flex-col xl:h-screen xl:min-h-0 xl:flex-1">
+        {/* Main Content */}
+        <div className="flex min-h-screen flex-col xl:h-screen xl:min-h-0 xl:flex-1">
         <div className="flex items-center justify-between border-b border-border bg-background px-4 py-3 sm:px-6 xl:px-8">
-          <div>
-            <h1 className="font-heading text-xl font-bold text-foreground">QR Canvas</h1>
-            <p className="text-sm text-muted-foreground">Create and save reusable QR codes</p>
+          <div className="flex items-center gap-3">
+            <img src="/logo.png" alt="QR Canvas" className="w-14 h-14 rounded-lg" />
+            <div>
+              <h1 className="font-heading text-xl font-bold text-foreground">QR Canvas</h1>
+              <p className="text-sm text-muted-foreground">Unlimited dynamic QR codes with scan tracking — free, open-source, self-hosted</p>
+            </div>
           </div>
-          <Button asChild variant="paper" className="rounded-full">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleTheme}
+              className="rounded-full"
+              title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+            >
+              {theme === 'light' ? (
+                <Moon className="h-4 w-4" />
+              ) : (
+                <Sun className="h-4 w-4" />
+              )}
+            </Button>
+            <Button asChild variant="paper" className="rounded-full">
             <Link to="/dashboard" className="inline-flex items-center gap-2">
               <LayoutDashboard className="h-4 w-4" />
               Dashboard ({savedCount})
             </Link>
           </Button>
+          </div>
         </div>
 
         {/* Mobile QR Type Selector - Dropdown */}
         <div className="w-full max-w-full overflow-hidden border-b border-border bg-background p-4 xl:hidden">
-          <h2 className="font-heading text-[20px] font-bold tracking-tight text-[#171717] leading-[120%] mb-3">Select QR type</h2>
+          <h2 className="font-heading text-[20px] font-bold tracking-tight text-foreground leading-[120%] mb-3">Select QR type</h2>
           <Select value={qrType} onValueChange={(value) => setQrType(value as QRType)}>
-            <SelectTrigger className="w-full h-14 rounded-xl bg-background border-border focus:ring-0 focus:ring-offset-0 focus:outline-none focus:border-[#D4D4D4]">
+            <SelectTrigger className="w-full h-14 rounded-xl bg-background border-border focus:ring-0 focus:ring-offset-0 focus:outline-none focus:border-border">
               <SelectValue>
                 {(() => {
                   const selected = qrTypeOptions.find(opt => opt.id === qrType);
@@ -357,7 +377,7 @@ const Index = () => {
           {/* Center - QR Preview */}
           <main className="flex w-full min-w-0 flex-col items-center px-4 pb-4 pt-3 sm:px-6 md:w-[360px] md:flex-shrink-0 md:px-6 md:pb-6 md:pt-6 lg:w-[420px] xl:flex-1 xl:overflow-y-auto xl:overflow-x-hidden xl:px-8 xl:pt-4">
             <div className="w-full max-w-md rounded-3xl border border-border bg-card p-4 sm:p-5 lg:max-w-[420px]" style={{ boxShadow: '0 14px 8px 0 rgba(64, 64, 64, 0.04), 0 6px 6px 0 rgba(64, 64, 64, 0.07), 0 2px 3px 0 rgba(64, 64, 64, 0.08)' }}>
-              <h2 className="font-heading text-[20px] font-bold tracking-tight text-[#171717] leading-[120%] mb-3">Live preview</h2>
+              <h2 className="font-heading text-[20px] font-bold tracking-tight text-foreground leading-[120%] mb-3">Live preview</h2>
               <QRPreview
                 qrValue={qrValue}
                 fgColor={fgColor}
