@@ -17,6 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { defaultFontFamilies, ensureGoogleFontLoaded, getGoogleFontFamilies } from '@/lib/fontRegistry';
 import type { LogoDevLookupMode, LogoSource } from '@/pages/Index';
+import { useToast } from '@/hooks/use-toast';
 
 export type FrameStyle = 'square' | 'rounded-sm' | 'rounded-md' | 'rounded-lg' | 'rounded-left' | 'rounded-right' | 'pill-h' | 'pill-v' | 'circle';
 
@@ -24,6 +25,8 @@ interface QRStyleTabsProps {
   qrType: QRType;
   value: string;
   onValueChange: (value: string) => void;
+  onUploadDestinationFile?: (type: Extract<QRType, 'image' | 'pdf' | 'mp3'>, file: File) => Promise<string>;
+  isDestinationUploading?: boolean;
   wifiSSID: string;
   onWifiSSIDChange: (ssid: string) => void;
   wifiPassword: string;
@@ -104,6 +107,8 @@ export function QRStyleTabs({
   qrType,
   value,
   onValueChange,
+  onUploadDestinationFile,
+  isDestinationUploading,
   wifiSSID,
   onWifiSSIDChange,
   wifiPassword,
@@ -152,11 +157,13 @@ export function QRStyleTabs({
   logoDevUrl,
   isLogoDevConfigured,
 }: QRStyleTabsProps) {
+  const { toast } = useToast();
   const [selectedTheme, setSelectedTheme] = useState('');
   const [fontPickerOpen, setFontPickerOpen] = useState(false);
   const [availableFonts, setAvailableFonts] = useState<string[]>(defaultFontFamilies);
   const [isFontsLoading, setIsFontsLoading] = useState(false);
   const [isSelectedFontLoading, setIsSelectedFontLoading] = useState(false);
+  const [isDestinationDragActive, setIsDestinationDragActive] = useState(false);
 
   const updateLogoStyle = <K extends keyof LogoStyleOptions>(key: K, value: LogoStyleOptions[K]) => {
     onLogoStyleChange({
@@ -272,6 +279,61 @@ export function QRStyleTabs({
     }
   };
 
+  const destinationUploadConfig: Partial<Record<QRType, { accept: string; button: string; maxSizeLabel: string }>> = {
+    image: { accept: 'image/*', button: 'Upload image', maxSizeLabel: 'Max 10 MB' },
+    pdf: { accept: 'application/pdf', button: 'Upload PDF', maxSizeLabel: 'Max 20 MB' },
+    mp3: { accept: 'audio/mpeg,audio/mp3', button: 'Upload MP3', maxSizeLabel: 'Max 25 MB' },
+  };
+
+  const uploadDestinationFileCandidate = async (file: File) => {
+    if (!onUploadDestinationFile) return;
+    if (qrType !== 'image' && qrType !== 'pdf' && qrType !== 'mp3') return;
+
+    try {
+      const uploadedUrl = await onUploadDestinationFile(qrType, file);
+      onValueChange(uploadedUrl);
+      toast({
+        title: 'File uploaded',
+        description: 'Firebase URL was added to the QR destination field.',
+      });
+    } catch (error) {
+      const description = error instanceof Error ? error.message : 'Could not upload this file.';
+      toast({
+        title: 'Upload failed',
+        description,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDestinationFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    await uploadDestinationFileCandidate(file);
+    e.target.value = '';
+  };
+
+  const handleDestinationDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    if (!onUploadDestinationFile || isDestinationUploading) return;
+    e.preventDefault();
+    setIsDestinationDragActive(true);
+  };
+
+  const handleDestinationDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDestinationDragActive(false);
+  };
+
+  const handleDestinationDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    if (!onUploadDestinationFile || isDestinationUploading) return;
+    e.preventDefault();
+    setIsDestinationDragActive(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    await uploadDestinationFileCandidate(file);
+  };
+
   const previewLogo =
     logoSource === 'upload'
       ? logo
@@ -287,9 +349,9 @@ export function QRStyleTabs({
   // Config for URL-like input types (label, placeholder, hint)
   const urlInputConfigs: Partial<Record<QRType, { label: string; placeholder: string; hint: string }>> = {
     url:   { label: 'Enter your link here', placeholder: 'https://example.com', hint: 'Your QR code will generate automatically' },
-    image: { label: 'Image URL', placeholder: 'https://example.com/image.png', hint: 'Paste a public image link for your QR destination' },
-    pdf:   { label: 'PDF URL', placeholder: 'https://example.com/file.pdf', hint: 'Paste a public PDF link for your QR destination' },
-    mp3:   { label: 'MP3 URL', placeholder: 'https://example.com/audio.mp3', hint: 'Paste a public MP3 link for your QR destination' },
+    image: { label: 'Image URL', placeholder: 'https://example.com/image.png', hint: 'Paste a public image URL, or upload a file below to fill this field automatically.' },
+    pdf:   { label: 'PDF URL', placeholder: 'https://example.com/file.pdf', hint: 'Paste a public PDF URL, or upload a file below to fill this field automatically.' },
+    mp3:   { label: 'MP3 URL', placeholder: 'https://example.com/audio.mp3', hint: 'Paste a public MP3 URL, or upload a file below to fill this field automatically.' },
     app:   { label: 'App Store or Play Store URL', placeholder: 'https://apps.apple.com/... or https://play.google.com/...', hint: 'Link to your app on App Store or Google Play' },
     video: { label: 'YouTube Video URL', placeholder: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', hint: 'Paste your YouTube video link here' },
   };
@@ -297,6 +359,8 @@ export function QRStyleTabs({
   const renderInputFields = () => {
     const urlConfig = urlInputConfigs[qrType];
     if (urlConfig) {
+      const uploadConfig = destinationUploadConfig[qrType];
+
       return (
         <div className="space-y-2">
           <Label className="text-sm text-muted-foreground">{urlConfig.label}</Label>
@@ -307,6 +371,48 @@ export function QRStyleTabs({
             onChange={(e) => onValueChange(e.target.value)}
             className={inputClassName}
           />
+          {uploadConfig && onUploadDestinationFile ? (
+            <div className="space-y-2">
+              <label className="inline-flex w-full">
+                <input
+                  type="file"
+                  accept={uploadConfig.accept}
+                  onChange={handleDestinationFileUpload}
+                  disabled={Boolean(isDestinationUploading)}
+                  className="hidden"
+                />
+                <span
+                  className={cn(
+                    'flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-border bg-background text-sm font-medium',
+                    isDestinationUploading
+                      ? 'cursor-not-allowed opacity-60'
+                      : 'cursor-pointer hover:bg-secondary/50',
+                  )}
+                >
+                  {isDestinationUploading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4" />
+                  )}
+                  {isDestinationUploading ? 'Uploading to Firebase...' : uploadConfig.button}
+                </span>
+              </label>
+              <div
+                onDragOver={handleDestinationDragOver}
+                onDragLeave={handleDestinationDragLeave}
+                onDrop={handleDestinationDrop}
+                className={cn(
+                  'flex h-20 w-full items-center justify-center rounded-xl border border-dashed px-3 text-center text-xs transition-colors',
+                  isDestinationDragActive
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border text-muted-foreground',
+                  isDestinationUploading ? 'opacity-60' : null,
+                )}
+              >
+                Drag and drop your file here to upload directly
+              </div>
+            </div>
+          ) : null}
           <p className="text-sm text-muted-foreground">{urlConfig.hint}</p>
         </div>
       );

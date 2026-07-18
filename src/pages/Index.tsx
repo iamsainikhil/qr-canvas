@@ -5,6 +5,7 @@ import { QRStyleTabs, FrameStyle } from '@/components/QRStyleTabs';
 import { BodyShape } from '@/components/BodyShapeSelector';
 import { Link } from 'react-router-dom';
 import { LayoutDashboard, Moon, Sun } from 'lucide-react';
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 
 import { defaultLogoStyleOptions, LogoStyleOptions } from '@/components/logoStyle';
 import { defaultScanLabelStyle, ScanLabelStyleOptions } from '@/components/scanLabelStyle';
@@ -33,9 +34,21 @@ import appIcon from '@/assets/qr-type-app.webp';
 import videoIcon from '@/assets/qr-type-video.webp';
 import { getCurrentOwnerUid } from '@/lib/authOwner';
 import { saveQrCodeForOwner, subscribeToOwnerQrCodes } from '@/lib/firestoreQrCodes';
+import { storage } from '@/integrations/firebase/client';
 
 export type LogoSource = 'none' | 'upload' | 'favicon' | 'logo-dev';
 export type LogoDevLookupMode = 'domain' | 'name' | 'ticker' | 'crypto' | 'isin';
+type UploadableQRType = Extract<QRType, 'image' | 'pdf' | 'mp3'>;
+const uploadableMimePrefixes: Record<UploadableQRType, string[]> = {
+  image: ['image/'],
+  pdf: ['application/pdf'],
+  mp3: ['audio/mpeg', 'audio/mp3'],
+};
+const uploadableMaxBytes: Record<UploadableQRType, number> = {
+  image: 10 * 1024 * 1024,
+  pdf: 20 * 1024 * 1024,
+  mp3: 25 * 1024 * 1024,
+};
 
 const normalizeLogoDevQuery = (mode: LogoDevLookupMode, value: string) => {
   const trimmed = value.trim();
@@ -159,6 +172,7 @@ const Index = () => {
   const [scanLabelStyle, setScanLabelStyle] = useState<ScanLabelStyleOptions>(defaultScanLabelStyle);
   const [logoStyle, setLogoStyle] = useState<LogoStyleOptions>(defaultLogoStyleOptions);
   const [savedCount, setSavedCount] = useState(0);
+  const [isDestinationUploadInProgress, setIsDestinationUploadInProgress] = useState(false);
 
   useEffect(() => {
     const ownerUid = getCurrentOwnerUid();
@@ -240,6 +254,52 @@ const Index = () => {
         return null;
     }
   }, [autoFaviconUrl, logo, logoDevUrl, logoSource]);
+
+  const uploadQrDestinationFile = async (type: UploadableQRType, file: File) => {
+    const ownerUid = getCurrentOwnerUid();
+    if (!ownerUid) {
+      throw new Error('Sign in required before uploading files.');
+    }
+
+    if (!storage) {
+      throw new Error('Firebase Storage is not configured. Check VITE_FIREBASE_* env vars.');
+    }
+
+    const allowedMimePatterns = uploadableMimePrefixes[type];
+    const normalizedFileType = file.type.trim().toLowerCase();
+    const hasAllowedMime = allowedMimePatterns.some((pattern) =>
+      pattern.endsWith('/') ? normalizedFileType.startsWith(pattern) : normalizedFileType === pattern,
+    );
+
+    if (!hasAllowedMime) {
+      throw new Error(`Invalid file type for ${type.toUpperCase()} QR.`);
+    }
+
+    const maxBytes = uploadableMaxBytes[type];
+    if (file.size > maxBytes) {
+      const limitMb = Math.round(maxBytes / (1024 * 1024));
+      throw new Error(`File is too large for ${type.toUpperCase()} QR. Maximum size is ${limitMb} MB.`);
+    }
+
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const objectRef = ref(
+      storage,
+      `users/${ownerUid}/qr-targets/${type}/${Date.now()}-${crypto.randomUUID()}-${safeName}`,
+    );
+
+    setIsDestinationUploadInProgress(true);
+    try {
+      await uploadBytes(objectRef, file, {
+        contentType: normalizedFileType || undefined,
+        cacheControl: 'public,max-age=31536000,immutable',
+      });
+      const publicUrl = await getDownloadURL(objectRef);
+      setTypeValues((prev) => ({ ...prev, [type]: publicUrl }));
+      return publicUrl;
+    } finally {
+      setIsDestinationUploadInProgress(false);
+    }
+  };
 
   const saveCurrentQrCode = async () => {
     const value = qrValue.trim();
@@ -403,6 +463,8 @@ const Index = () => {
               qrType={qrType}
               value={currentValue}
               onValueChange={setCurrentValue}
+              onUploadDestinationFile={uploadQrDestinationFile}
+              isDestinationUploading={isDestinationUploadInProgress}
               wifiSSID={wifiSSID}
               onWifiSSIDChange={setWifiSSID}
               wifiPassword={wifiPassword}
