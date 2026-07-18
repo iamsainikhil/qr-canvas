@@ -64,6 +64,17 @@ Licensed under GPL v3. Use it for your business, your side project, your client 
 
 ---
 
+## Demos
+
+| | |
+|---|---|
+| **QR Code Generator & Dashboard** | **QR Types Overview** |
+| <video src="https://github.com/user-attachments/assets/55c8da83-7779-4bbc-8c74-5e85b37926cc" controls width="100%"></video> | <video src="https://github.com/user-attachments/assets/ffe4afe3-d6e2-4ee3-8e9c-60f2b49ba52e" controls width="100%"></video> |
+| **App Responsiveness** | **File Upload QR Codes (Image, PDF, MP3)** |
+| <video src="https://github.com/user-attachments/assets/fd49c85d-c47c-480b-b3bc-4ae11fc41467" controls width="100%"></video> | <video src="https://github.com/user-attachments/assets/4f1c56dd-4bf8-4cfb-bb39-38480b98cf26" controls width="100%"></video> |
+
+---
+
 ## Screenshots
 
 ### App Overview
