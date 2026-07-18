@@ -31,7 +31,7 @@ export function BodyShapeSelector({ selectedShape, onShapeChange }: BodyShapeSel
             "aspect-square p-2.5 rounded-2xl transition-all duration-200 flex items-center justify-center border",
             selectedShape === shape.id
               ? "gradient-border-selected"
-              : "border-[#E5E5E5] bg-white hover:bg-[#F5F5F5]/50"
+              : "border-border bg-card hover:bg-muted/50"
           )}
           title={shape.label}
         >
