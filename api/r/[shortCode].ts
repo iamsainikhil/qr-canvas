@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'http';
 import crypto from 'crypto';
 import { FieldValue } from 'firebase-admin/firestore';
 
-import { getAdminDb } from '../_lib/firebaseAdmin';
+import { getAdminDb } from '../_lib/firebaseAdmin.js';
 
 const parseCookies = (cookieHeader?: string) => {
   if (!cookieHeader) return {} as Record<string, string>;
