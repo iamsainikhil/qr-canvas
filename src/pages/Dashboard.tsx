@@ -634,9 +634,11 @@ export default function Dashboard() {
           )
         : undefined;
 
+      const downloadSize = item.style.downloadSize || 500;
+
       const qr = new QRCodeStyling({
-        width: 1200,
-        height: 1200,
+        width: downloadSize,
+        height: downloadSize,
         data: item.value,
         ...(logoPlaceholder
           ? {
@@ -688,14 +690,14 @@ export default function Dashboard() {
       };
       const labelText = (item.style.scanText || '').trim();
       const includeLabel = Boolean(labelText);
-      const padding = Math.round(1200 * 0.08);
-      const fontSize = Math.max(16, scanLabelStyle.fontSize * 3);
+      const padding = Math.round(downloadSize * 0.08);
+      const fontSize = Math.max(16, Math.round(scanLabelStyle.fontSize * (downloadSize / 400)));
       const textAreaHeight = Math.round(fontSize * 1.6);
       const extraHeight = includeLabel ? textAreaHeight + padding : 0;
 
       const canvas = document.createElement('canvas');
-      canvas.width = 1200;
-      canvas.height = 1200 + extraHeight;
+      canvas.width = downloadSize;
+      canvas.height = downloadSize + extraHeight;
       const ctx = canvas.getContext('2d');
       if (!ctx) {
         throw new Error('Canvas unavailable');
@@ -703,7 +705,7 @@ export default function Dashboard() {
 
       ctx.fillStyle = item.style.bgColor || '#FFFFFF';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(qrImg, 0, 0, 1200, 1200);
+      ctx.drawImage(qrImg, 0, 0, downloadSize, downloadSize);
 
       if (logo && resolvedLogoStyle.badgeSize > 0) {
         try {
@@ -715,9 +717,9 @@ export default function Dashboard() {
             logoImg.onerror = () => reject(new Error('Logo load failed'));
           });
 
-          const badgeSize = Math.round(1200 * (resolvedLogoStyle.badgeSize / 100));
-          const cx = Math.round(1200 / 2);
-          const cy = Math.round(1200 / 2);
+          const badgeSize = Math.round(downloadSize * (resolvedLogoStyle.badgeSize / 100));
+          const cx = Math.round(downloadSize / 2);
+          const cy = Math.round(downloadSize / 2);
           const badgeX = Math.round(cx - badgeSize / 2);
           const badgeY = Math.round(cy - badgeSize / 2);
           const badgeRadius = Math.round(badgeSize * (resolvedLogoStyle.cornerRadius / 100));
@@ -755,7 +757,7 @@ export default function Dashboard() {
         ctx.fillText(
           scanLabelStyle.uppercase ? labelText.toUpperCase() : labelText,
           canvas.width / 2,
-          1200 + padding / 2 + textAreaHeight / 2,
+          downloadSize + padding / 2 + textAreaHeight / 2,
         );
       }
 

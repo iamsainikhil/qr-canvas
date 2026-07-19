@@ -331,6 +331,7 @@ const Index = () => {
           logoStyle,
           scanText,
           scanLabelStyle,
+          downloadSize: qrSize,
         },
       });
 

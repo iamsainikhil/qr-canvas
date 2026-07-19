@@ -15,6 +15,7 @@ export interface SavedQRCodeStyleSnapshot {
   logoStyle?: Partial<LogoStyleOptions> | null;
   scanText?: string;
   scanLabelStyle?: Partial<ScanLabelStyleOptions> | null;
+  downloadSize?: number | null;
 }
 
 export interface SavedQRCodeStats {
