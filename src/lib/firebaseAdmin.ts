@@ -9,7 +9,9 @@ let app: App;
 
 export const getAdminDb = () => {
   if (!projectId || !clientEmail || !privateKey) {
-    throw new Error('Missing Firebase Admin environment variables: FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY');
+    throw new Error(
+      'Missing Firebase Admin environment variables: FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY',
+    );
   }
 
   if (!getApps().length) {
