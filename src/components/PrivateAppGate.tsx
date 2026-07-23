@@ -6,7 +6,7 @@ import {
   signOut,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { Loader2, Lock, LogOut, ShieldCheck } from 'lucide-react';
+import { ExternalLink, Github, Loader2, Lock, LogOut, Moon, QrCode, ShieldCheck, Sparkles, Sun } from 'lucide-react';
 
 import {
   firebaseAuth,
@@ -17,55 +17,150 @@ import {
 } from '@/integrations/firebase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useTheme } from '@/hooks/use-theme';
 import { useToast } from '@/hooks/use-toast';
 
 const PRIVATE_MODE = import.meta.env.VITE_PRIVATE_MODE === 'true';
 const OWNER_EMAIL = (import.meta.env.VITE_OWNER_EMAIL ?? '').trim().toLowerCase();
+const GITHUB_REPO = 'https://github.com/iamsainikhil/qr-canvas';
 
 const isOwnerUser = (user: User | null) => {
   if (!OWNER_EMAIL) return false;
   return (user?.email ?? '').trim().toLowerCase() === OWNER_EMAIL;
 };
 
+function GateHeader() {
+  const { theme, toggleTheme } = useTheme();
+  return (
+    <div className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between border-b border-border bg-card px-5 py-4">
+      <a href="/" className="flex items-center gap-3">
+        <img src="/logo.png" alt="QR Canvas" className="w-12 h-12 rounded-xl" />
+        <div>
+          <h1 className="font-heading text-xl font-bold text-foreground">QR Canvas</h1>
+          <p className="text-sm text-muted-foreground">Generate unlimited dynamic QR codes with scan tracking</p>
+        </div>
+      </a>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={toggleTheme}
+          className="rounded-full"
+          title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+        >
+          {theme === 'light' ? (
+            <Moon className="h-4 w-4" />
+          ) : (
+            <Sun className="h-4 w-4" />
+          )}
+        </Button>
+        <a
+          href={GITHUB_REPO}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <Github className="h-4 w-4" />
+          <span className="hidden sm:inline">Self-host this app</span>
+          <ExternalLink className="h-3 w-3" />
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function GateFooter() {
+  return (
+    <div className="absolute bottom-0 left-0 right-0 border-t border-border/30 px-4 py-3">
+      <p className="text-center text-xs text-muted-foreground">
+        This is a private deployment.{' '}
+        <a
+          href={GITHUB_REPO}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline underline-offset-2 transition-colors hover:text-foreground"
+        >
+          Fork on GitHub
+        </a>{' '}
+        to self-host with your own owner account.
+      </p>
+    </div>
+  );
+}
+
 function PrivateAccessSetupError() {
   const missing = missingFirebaseClientEnv.join(', ');
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-xl border-destructive/40">
-        <CardHeader>
-          <CardTitle className="font-heading text-2xl">Private mode needs setup</CardTitle>
-          <CardDescription>
-            Set VITE_OWNER_EMAIL and Firebase client env vars to lock this deployment.
-          </CardDescription>
-        </CardHeader>
-        {missing ? (
-          <CardContent className="text-sm text-muted-foreground">
-            Missing: {missing}
+    <div className="relative flex min-h-screen flex-col bg-background">
+      <GateHeader />
+      <main className="flex flex-1 items-center justify-center p-4 pt-20">
+        <Card className="w-full max-w-xl border-destructive/40">
+          <CardHeader className="text-center">
+            <CardTitle className="font-heading text-2xl">Private mode needs setup</CardTitle>
+            <CardDescription>
+              Set VITE_OWNER_EMAIL and Firebase client env vars to lock this deployment.
+            </CardDescription>
+          </CardHeader>
+          {missing ? (
+            <CardContent className="text-center text-sm text-muted-foreground">
+              Missing: {missing}
+            </CardContent>
+          ) : null}
+          <CardContent className="text-center">
+            <p className="text-xs text-muted-foreground">
+              See the{' '}
+              <a
+                href={GITHUB_REPO}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 transition-colors hover:text-foreground"
+              >
+                GitHub repo
+              </a>{' '}
+              for setup instructions.
+            </p>
           </CardContent>
-        ) : null}
-      </Card>
+        </Card>
+      </main>
+      <GateFooter />
     </div>
   );
 }
 
 function AccessDenied({ onSignOut }: { onSignOut: () => Promise<void> }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-xl border-destructive/40">
-        <CardHeader>
-          <CardTitle className="font-heading text-2xl">Access denied</CardTitle>
-          <CardDescription>
-            This deployment is restricted to one owner account.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button variant="outline" className="rounded-full" onClick={onSignOut}>
-            <LogOut className="h-4 w-4" />
-            Sign out
-          </Button>
-        </CardContent>
-      </Card>
+    <div className="relative flex min-h-screen flex-col bg-background">
+      <GateHeader />
+      <main className="flex flex-1 items-center justify-center p-4 pt-20">
+        <Card className="w-full max-w-xl border-destructive/40">
+          <CardHeader className="text-center">
+            <CardTitle className="font-heading text-2xl">Access denied</CardTitle>
+            <CardDescription>
+              This deployment is restricted to one owner account.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center gap-3">
+            <Button variant="outline" className="rounded-full" onClick={onSignOut}>
+              <LogOut className="h-4 w-4" />
+              Sign out
+            </Button>
+            <p className="text-center text-xs text-muted-foreground">
+              Want your own instance?{' '}
+              <a
+                href={GITHUB_REPO}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 transition-colors hover:text-foreground"
+              >
+                Self-host on GitHub
+              </a>
+              .
+            </p>
+          </CardContent>
+        </Card>
+      </main>
+      <GateFooter />
     </div>
   );
 }
@@ -78,7 +173,8 @@ function PrivateSignIn({
   onSignIn: () => Promise<void>;
 }) {
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-4">
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-background">
+      <GateHeader />
       <div
         className="pointer-events-none absolute inset-0"
         style={{
@@ -86,35 +182,52 @@ function PrivateSignIn({
             'radial-gradient(circle at 20% 20%, rgba(37,99,235,0.10), transparent 45%), radial-gradient(circle at 80% 80%, rgba(34,197,94,0.10), transparent 45%)',
         }}
       />
-      <Card className="relative w-full max-w-xl border-border/70 bg-card/95 backdrop-blur">
-        <CardHeader>
-          <div className="mb-2 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary">
-            <Lock className="h-5 w-5 text-foreground" />
-          </div>
-          <CardTitle className="font-heading text-3xl">Private QR Console</CardTitle>
-          <CardDescription>
-            Sign in with Google using your owner account.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Button onClick={onSignIn} className="h-11 w-full rounded-full" disabled={signingIn}>
-            {signingIn ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Signing in
-              </>
-            ) : (
-              <>
-                <ShieldCheck className="h-4 w-4" />
-                Continue with Google
-              </>
-            )}
-          </Button>
-          <p className="text-xs text-muted-foreground">
-            Access is restricted to the authorized owner account.
-          </p>
-        </CardContent>
-      </Card>
+      <main className="relative z-10 flex flex-1 items-center justify-center p-4 pt-20">
+        <Card className="w-full max-w-xl border-border/70 bg-card/95 backdrop-blur">
+          <CardHeader className="items-center text-center">
+            <div className="mb-2 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary">
+              <Lock className="h-5 w-5 text-foreground" />
+            </div>
+            <CardTitle className="font-heading text-3xl">Private QR Console</CardTitle>
+            <CardDescription>
+              Sign in with Google using your owner account.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center gap-4">
+            <Button onClick={onSignIn} className="h-11 w-full max-w-xs rounded-full" disabled={signingIn}>
+              {signingIn ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Signing in
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="h-4 w-4" />
+                  Continue with Google
+                </>
+              )}
+            </Button>
+            <p className="text-center text-xs text-muted-foreground">
+              Access is restricted to the authorized owner account.
+            </p>
+          </CardContent>
+          <CardContent className="flex justify-center border-t border-border/30 pt-4">
+            <p className="text-center text-xs text-muted-foreground">
+              Want to run your own instance?{' '}
+              <a
+                href={GITHUB_REPO}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 transition-colors hover:text-foreground"
+              >
+                Self-host on GitHub
+              </a>
+              .
+            </p>
+          </CardContent>
+        </Card>
+      </main>
+      <GateFooter />
     </div>
   );
 }
@@ -228,11 +341,15 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
 
   if (checking) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Checking private access
-        </div>
+      <div className="relative flex min-h-screen flex-col bg-background">
+        <GateHeader />
+        <main className="flex flex-1 items-center justify-center">
+          <div className="flex flex-col items-center gap-3 text-center text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Checking private access
+          </div>
+        </main>
+        <GateFooter />
       </div>
     );
   }
