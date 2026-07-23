@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { QRType } from './QRTypeSelector';
 import { ThemePresets, ThemePreset } from './ThemePresets';
 import { BodyShapeSelector, BodyShape } from './BodyShapeSelector';
 
-import { ColorPicker, InlineColorPickerField, fgSwatches, bgSwatches } from './ColorPicker';
+import { ColorPicker, InlineColorPickerField, bgSwatches } from './ColorPicker';
 import { Slider } from '@/components/ui/slider';
 import { LogoStyleOptions } from './logoStyle';
 import { ScanLabelStyleOptions } from './scanLabelStyle';
