@@ -6,19 +6,10 @@ export function Header() {
     <header className="border-b border-border/50 bg-background/80 backdrop-blur-sm sticky top-0 z-40">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-3">
-          <div className="relative">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent to-accent/80 flex items-center justify-center shadow-paper">
-              <QrCode className="w-5 h-5 text-accent-foreground" />
-            </div>
-            <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-highlight flex items-center justify-center">
-              <Sparkles className="w-2 h-2 text-highlight-foreground" />
-            </div>
-          </div>
+          <img src="/logo.png" alt="QR Canvas" className="w-14 h-14 rounded-lg" />
           <div>
-            <h1 className="text-xl font-serif font-semibold text-foreground tracking-tight">
-              QR Canvas
-            </h1>
-            <p className="text-xs text-muted-foreground -mt-0.5">Unlimited dynamic QR codes — free & self-hosted</p>
+            <h1 className="font-heading text-xl font-bold text-foreground">QR Canvas</h1>
+            <p className="text-sm text-muted-foreground">Unlimited dynamic QR codes with scan tracking — free, open-source, self-hosted</p>
           </div>
         </Link>
 
