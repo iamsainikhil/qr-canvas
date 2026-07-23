@@ -417,9 +417,9 @@ const Index = () => {
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col md:flex-row md:items-center xl:min-h-0">
+        <div className="flex flex-1 flex-col md:flex-row md:items-start xl:min-h-0">
           {/* Center - QR Preview */}
-          <main className="flex w-full min-w-0 flex-col items-center justify-center px-4 pb-4 pt-4 sm:px-6 md:flex-1 md:px-8 md:pb-6 md:pt-8 xl:overflow-y-auto xl:overflow-x-hidden xl:px-12 xl:pt-8">
+          <main className="flex w-full min-w-0 flex-col items-center justify-center px-4 pb-4 pt-0 sm:px-6 md:flex-1 md:justify-start md:px-8 md:pb-6 xl:overflow-y-auto xl:overflow-x-hidden xl:px-12 xl:pt-6">
             <div className="w-full max-w-md rounded-3xl border border-border bg-card p-4 sm:p-5" style={{ boxShadow: '0 14px 8px 0 rgba(64, 64, 64, 0.04), 0 6px 6px 0 rgba(64, 64, 64, 0.07), 0 2px 3px 0 rgba(64, 64, 64, 0.08)' }}>
               <h2 className="font-heading text-[20px] font-bold tracking-tight text-foreground leading-[120%] mb-3">Live preview</h2>
               <QRPreview
