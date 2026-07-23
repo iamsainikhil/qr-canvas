@@ -1,4 +1,5 @@
 import { PropsWithChildren, useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   User,
   onAuthStateChanged,
@@ -23,6 +24,8 @@ import { useToast } from '@/hooks/use-toast';
 const PRIVATE_MODE = import.meta.env.VITE_PRIVATE_MODE === 'true';
 const OWNER_EMAIL = (import.meta.env.VITE_OWNER_EMAIL ?? '').trim().toLowerCase();
 const GITHUB_REPO = 'https://github.com/iamsainikhil/qr-canvas';
+const PUBLIC_PATH_PREFIXES = ['/r/'];
+const PUBLIC_PATHS = new Set(['/scan-error']);
 
 const isOwnerUser = (user: User | null) => {
   if (!OWNER_EMAIL) return false;
@@ -233,6 +236,7 @@ function PrivateSignIn({
 }
 
 export function PrivateAppGate({ children }: PropsWithChildren) {
+  const location = useLocation();
   const [user, setUser] = useState<User | null>(null);
   const [checking, setChecking] = useState(PRIVATE_MODE);
   const [signingIn, setSigningIn] = useState(false);
@@ -332,6 +336,13 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
   };
 
   if (!PRIVATE_MODE) {
+    return <>{children}</>;
+  }
+
+  const pathname = location.pathname;
+  const isPublicPath =
+    PUBLIC_PATHS.has(pathname) || PUBLIC_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+  if (isPublicPath) {
     return <>{children}</>;
   }
 

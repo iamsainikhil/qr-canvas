@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 import ScanError from "./pages/ScanError";
+import TrackingRedirect from "./pages/TrackingRedirect";
 import { PrivateAppGate } from "./components/PrivateAppGate";
 import { analytics } from "./integrations/firebase/client";
 
@@ -34,6 +35,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/r/:shortCode" element={<TrackingRedirect />} />
             <Route path="/scan-error" element={<ScanError />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
