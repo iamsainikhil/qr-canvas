@@ -1,15 +1,16 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Copy, Check, BookmarkPlus } from 'lucide-react';
+import { Icon } from '@iconify/react';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
+import { cn, getContrastingTextColor } from '@/lib/utils';
+import { useGoogleFont } from '@/hooks/use-google-font';
 import { FrameStyle } from './QRStyleTabs';
 import { BodyShape } from './BodyShapeSelector';
 import { LogoStyleOptions, resolveLogoStyleOptions } from './logoStyle';
-import { ScanLabelStyleOptions, defaultScanLabelStyle, getContrastingTextColor } from './scanLabelStyle';
+import { ScanLabelStyleOptions, defaultScanLabelStyle } from './scanLabelStyle';
 import { SizeSelector } from './SizeSelector';
 import { ensureGoogleFontLoaded } from '@/lib/fontRegistry';
-import QRCodeStyling, { DotType, CornerSquareType, CornerDotType } from 'qr-code-styling';
+import QRCodeStyling from 'qr-code-styling';
 
 interface QRPreviewProps {
   qrValue: string;
@@ -62,29 +63,12 @@ const frameStyleClasses: Record<FrameStyle, string> = {
   'circle': 'rounded-full',
 };
 
-// Map BodyShape to qr-code-styling dot types
-const bodyShapeToDotType: Record<BodyShape, DotType> = {
-  'square': 'square',
-  'dots': 'dots',
-  'rounded': 'rounded',
-  'classy': 'classy',
-  'sharp': 'classy-rounded',
-};
-
-const bodyShapeToCornerSquareType: Record<BodyShape, CornerSquareType> = {
-  'square': 'square',
-  'dots': 'dot',
-  'rounded': 'extra-rounded',
-  'classy': 'extra-rounded',
-  'sharp': 'square',
-};
-
-const bodyShapeToCornerDotType: Record<BodyShape, CornerDotType> = {
-  'square': 'square',
-  'dots': 'dot',
-  'rounded': 'dot',
-  'classy': 'dot',
-  'sharp': 'square',
+const bodyShapeMapping = {
+  'square': { dotType: 'square' as const, cornerSquareType: 'square' as const, cornerDotType: 'square' as const },
+  'dots': { dotType: 'dots' as const, cornerSquareType: 'dot' as const, cornerDotType: 'dot' as const },
+  'rounded': { dotType: 'rounded' as const, cornerSquareType: 'extra-rounded' as const, cornerDotType: 'dot' as const },
+  'classy': { dotType: 'classy' as const, cornerSquareType: 'extra-rounded' as const, cornerDotType: 'dot' as const },
+  'sharp': { dotType: 'classy-rounded' as const, cornerSquareType: 'square' as const, cornerDotType: 'square' as const },
 };
 
 const createQrOptions = ({
@@ -103,40 +87,43 @@ const createQrOptions = ({
   bodyShape: BodyShape;
   backgroundColor: string;
   logoPlaceholder?: string;
-}) => ({
-  width: size,
-  height: size,
-  data,
-  ...(logoPlaceholder
-    ? {
-        image: logoPlaceholder,
-        imageOptions: {
-          hideBackgroundDots: true,
-          imageSize: 0.25,
-          margin: 8,
-          crossOrigin: 'anonymous' as const,
-        },
-      }
-    : {}),
-  dotsOptions: {
-    color: fgColor,
-    type: bodyShapeToDotType[bodyShape],
-  },
-  cornersSquareOptions: {
-    color: patternColor || fgColor,
-    type: bodyShapeToCornerSquareType[bodyShape],
-  },
-  cornersDotOptions: {
-    color: patternColor || fgColor,
-    type: bodyShapeToCornerDotType[bodyShape],
-  },
-  backgroundOptions: {
-    color: backgroundColor,
-  },
-  qrOptions: {
-    errorCorrectionLevel: 'H' as const,
-  },
-});
+}) => {
+  const shape = bodyShapeMapping[bodyShape];
+  return {
+    width: size,
+    height: size,
+    data,
+    ...(logoPlaceholder
+      ? {
+          image: logoPlaceholder,
+          imageOptions: {
+            hideBackgroundDots: true,
+            imageSize: 0.25,
+            margin: 8,
+            crossOrigin: 'anonymous' as const,
+          },
+        }
+      : {}),
+    dotsOptions: {
+      color: fgColor,
+      type: shape.dotType,
+    },
+    cornersSquareOptions: {
+      color: patternColor || fgColor,
+      type: shape.cornerSquareType,
+    },
+    cornersDotOptions: {
+      color: patternColor || fgColor,
+      type: shape.cornerDotType,
+    },
+    backgroundOptions: {
+      color: backgroundColor,
+    },
+    qrOptions: {
+      errorCorrectionLevel: 'H' as const,
+    },
+  };
+};
 
 const buildLogoPlaceholder = (
   badgeSize: number,
@@ -183,6 +170,7 @@ export function QRPreview({
   const [resolvedScanFontFamily, setResolvedScanFontFamily] = useState(
     scanLabelStyle.fontFamily,
   );
+  const isFontLoading = useGoogleFont(scanLabelStyle.fontFamily);
   const { toast } = useToast();
   const resolvedLogoStyle = resolveLogoStyleOptions(logoStyle);
   const hasLogo = Boolean(logo);
@@ -198,41 +186,10 @@ export function QRPreview({
   const hasContent = Boolean(qrValue && qrValue.trim().length > 0);
 
   useEffect(() => {
-    let cancelled = false;
-
-    const applyLoadedFont = async () => {
-      await ensureGoogleFontLoaded(scanLabelStyle.fontFamily, [400, 500, 600, 700, 800]);
-      if (!cancelled) {
-        setResolvedScanFontFamily(scanLabelStyle.fontFamily);
-      }
-    };
-
-    void applyLoadedFont();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [scanLabelStyle.fontFamily]);
-
-  // Initialize QR code
-  useEffect(() => {
-    qrCodeRef.current = new QRCodeStyling(
-      createQrOptions({
-        size: qrSize,
-        data: displayValue,
-        fgColor,
-        patternColor,
-        bodyShape,
-        backgroundColor: 'transparent',
-        logoPlaceholder,
-      }),
-    );
-
-    if (qrRef.current) {
-      qrRef.current.innerHTML = '';
-      qrCodeRef.current.append(qrRef.current);
+    if (!isFontLoading) {
+      setResolvedScanFontFamily(scanLabelStyle.fontFamily);
     }
-  }, []);
+  }, [isFontLoading, scanLabelStyle.fontFamily]);
 
   // Update QR code when props change
   useEffect(() => {
@@ -372,7 +329,7 @@ export function QRPreview({
       console.error('QR render failed:', err);
       throw err;
     }
-  }, [downloadSize, displayValue, fgColor, bodyShape, bgColor, hasLogo, logo, resolvedLogoStyle, scanText, scanLabelStyle, qrSize]);
+  }, [downloadSize, displayValue, fgColor, patternColor, bodyShape, bgColor, logo, logoPlaceholder, resolvedLogoStyle, scanText, scanLabelStyle, qrSize]);
 
   const downloadQR = useCallback(async () => {
     try {
@@ -429,7 +386,7 @@ export function QRPreview({
           title: "Copied!",
           description: "QR code copied to clipboard.",
         });
-      } catch (err) {
+      } catch {
         // Fallback: Try to copy the URL/text value instead
         try {
           await navigator.clipboard.writeText(displayValue);
@@ -455,7 +412,7 @@ export function QRPreview({
       {/* QR Code Display */}
       <div 
         className={cn(
-          "w-full p-6 lg:p-5 bg-card shadow-lg transition-all duration-300",
+          "w-full p-6 lg:p-5 bg-card shadow-lg",
           frameStyleClasses[frameStyle]
         )}
         style={{ 
@@ -506,8 +463,12 @@ export function QRPreview({
         </div>
       </div>
 
-      <div className="w-full rounded-2xl border border-border bg-card p-4 space-y-3">
-        <p className="font-heading text-sm font-bold tracking-tight text-foreground">Download options</p>
+      <div className="w-full rounded-2xl border border-border bg-card p-4 space-y-2">
+        <div className="flex items-start gap-2">
+          <Icon icon="lucide:download" className="h-4 w-4 text-muted-foreground" />
+          <p className="font-heading text-sm font-bold tracking-tight text-foreground">Export</p>
+        </div>
+        <p className="text-xs text-muted-foreground">Choose output format</p>
         <SizeSelector
           value={downloadSize}
           onChange={(size) => onDownloadSizeChange?.(size)}
@@ -515,7 +476,7 @@ export function QRPreview({
       </div>
 
       {/* Action Buttons */}
-      <div className="flex items-center gap-2 w-full">
+      <div className="flex items-center gap-2 w-full pt-1">
         <div className="relative flex-1">
           {/* Glow effect */}
           <div className={cn(
@@ -526,7 +487,7 @@ export function QRPreview({
             onClick={downloadQR}
             disabled={!hasContent}
             className={cn(
-              "relative w-full h-12 rounded-full font-medium text-base border-0 shadow-none transition-all",
+              "relative w-full h-12 rounded-full font-medium text-base border-0 shadow-none transition-all inline-flex items-center justify-center gap-2",
               "lg:h-11",
               hasContent 
                 ? "text-white hover:opacity-90"
@@ -534,7 +495,8 @@ export function QRPreview({
             )}
             style={hasContent ? { background: 'linear-gradient(91deg, #8FA2F5 0%, #587FED 36.54%, #587FED 67.26%, #8FA2F5 100%)' } : undefined}
           >
-            Download QR code
+            <Icon icon="lucide:download" className="h-4 w-4" />
+            Download
           </Button>
         </div>
         <Button
@@ -542,24 +504,24 @@ export function QRPreview({
           onClick={onSave}
           disabled={!hasContent}
           className={cn(
-            "h-10 rounded-full px-4",
+            "h-11 rounded-full px-4 inline-flex items-center gap-2",
             hasContent ? "" : "cursor-not-allowed"
           )}
         >
-          <BookmarkPlus className="h-4 w-4" />
+          <Icon icon="lucide:bookmark-plus" className="h-4 w-4" />
           Save
         </Button>
         <Button
-          variant="ghost"
-          size="icon"
+          variant="outline"
           onClick={copyToClipboard}
           disabled={!hasContent}
           className={cn(
-            "h-10 w-10 rounded-full border-0 bg-transparent",
-            hasContent ? "hover:bg-secondary/50" : "cursor-not-allowed opacity-50"
+            "h-11 rounded-full px-4 inline-flex items-center gap-2",
+            hasContent ? "" : "cursor-not-allowed opacity-50"
           )}
         >
-          {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+          {copied ? <Icon icon="mdi-light:check" className="w-4 h-4" /> : <Icon icon="lucide:copy" className="w-4 h-4" />}
+          {copied ? 'Copied' : 'Copy'}
         </Button>
       </div>
     </div>

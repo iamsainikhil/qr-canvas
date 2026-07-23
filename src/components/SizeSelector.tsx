@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { Icon } from '@iconify/react';
 import {
   Tooltip,
   TooltipContent,
@@ -11,12 +12,13 @@ interface SizePreset {
   label: string;
   description: string;
   size: number;
+  icon: string;
 }
 
 const sizePresets: SizePreset[] = [
-  { id: 'social', label: 'Social', description: 'Social media posts (500px)', size: 500 },
-  { id: 'card', label: 'Card', description: 'Business cards (800px)', size: 800 },
-  { id: 'print', label: 'Print', description: 'Flyers & posters (1200px)', size: 1200 },
+  { id: 'social', label: 'Social', description: 'Social media posts (500px)', size: 500, icon: 'lucide:smartphone' },
+  { id: 'card', label: 'Card', description: 'Business cards (800px)', size: 800, icon: 'lucide:rectangle-horizontal' },
+  { id: 'print', label: 'Print', description: 'Flyers & posters (1200px)', size: 1200, icon: 'lucide:printer' },
 ];
 
 interface SizeSelectorProps {
@@ -39,12 +41,13 @@ export function SizeSelector({ value, onChange }: SizeSelectorProps) {
               <button
                 onClick={() => onChange(preset.size)}
                 className={cn(
-                  "py-3 px-4 rounded-2xl text-sm font-medium transition-all duration-200 border",
+                  "h-12 px-4 rounded-2xl text-sm font-medium transition-all duration-200 border inline-flex items-center justify-center gap-2 w-full",
                   selectedPreset.id === preset.id
                     ? "gradient-border-selected"
                     : "border-border bg-card hover:bg-muted/50"
                 )}
               >
+                <Icon icon={preset.icon} className="h-4 w-4" />
                 {preset.label}
               </button>
             </TooltipTrigger>
