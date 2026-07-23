@@ -1,9 +1,10 @@
+"use client";
+
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Moon, Sun } from 'lucide-react';
+import Link from 'next/link';
+import { Icon } from '@iconify/react';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDistanceToNow } from 'date-fns';
-import { ArrowLeft, BarChart2, Copy, Download, ExternalLink, Link2, Loader2, QrCode, Search, Trash2 } from 'lucide-react';
 import QRCodeStyling, { type CornerDotType, type CornerSquareType, type DotType } from 'qr-code-styling';
 
 import { Button } from '@/components/ui/button';
@@ -20,7 +21,8 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { SavedQRCode, qrTypeLabel } from '@/lib/savedQrCodes';
-import { defaultScanLabelStyle, getContrastingTextColor } from '@/components/scanLabelStyle';
+import { getContrastingTextColor } from '@/lib/utils';
+import { defaultScanLabelStyle } from '@/components/scanLabelStyle';
 import { resolveLogoStyleOptions } from '@/components/logoStyle';
 import { ensureGoogleFontLoaded } from '@/lib/fontRegistry';
 import {
@@ -35,6 +37,26 @@ import { getCurrentOwnerUid } from '@/lib/authOwner';
 
 const canOpenInBrowser = (item: SavedQRCode) => {
   return item.type === 'url' || item.type === 'video' || item.type === 'app' || item.type === 'image' || item.type === 'pdf' || item.type === 'mp3';
+};
+
+const hasProtocol = (value: string) => /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(value);
+
+const formatDestinationSummary = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return 'No destination';
+
+  try {
+    const normalized = hasProtocol(trimmed) ? trimmed : `https://${trimmed}`;
+    const parsed = new URL(normalized);
+    const host = parsed.hostname.replace(/^www\./i, '');
+    const path = parsed.pathname && parsed.pathname !== '/' ? parsed.pathname.replace(/\/$/, '') : '';
+    const shortPath = path.length > 18 ? `${path.slice(0, 18)}...` : path;
+
+    if (!shortPath) return host;
+    return `${host}${shortPath.startsWith('/') ? '' : '/'}${shortPath}`;
+  } catch {
+    return trimmed.length > 40 ? `${trimmed.slice(0, 37)}...` : trimmed;
+  }
 };
 
 const bodyShapeToDotType: Record<SavedQRCode['style']['bodyShape'], DotType> = {
@@ -419,7 +441,7 @@ function AnalyticsContent({ item, events }: { item: SavedQRCode; events: ScanEve
           </div>
 
           <Button variant="outline" className="w-full rounded-full" onClick={downloadCsv}>
-            <Download className="h-4 w-4" />
+            <Icon icon="lucide:download" className="h-4 w-4" />
             Download CSV
           </Button>
         </>
@@ -432,16 +454,16 @@ function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
   return (
     <Button
-      variant="outline"
-      size="sm"
+      variant="ghost"
+      size="icon"
       onClick={toggleTheme}
       className="rounded-full"
       title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
     >
       {theme === 'light' ? (
-        <Moon className="h-4 w-4" />
+        <Icon icon="line-md:sunny-outline-to-moon-loop-transition" className="!size-6" />
       ) : (
-        <Sun className="h-4 w-4" />
+        <Icon icon="line-md:moon-to-sunny-outline-loop-transition" className="!size-6" />
       )}
     </Button>
   );
@@ -619,6 +641,158 @@ export default function Dashboard() {
       });
     } finally {
       setSavingDestination(false);
+    }
+  };
+
+  const getSavedQrPngBlob = async (item: SavedQRCode): Promise<Blob> => {
+    const resolvedLogoStyle = resolveLogoStyleOptions(item.style.logoStyle || undefined);
+    const logo = item.style.logo || null;
+    const logoPlaceholder = logo && resolvedLogoStyle.badgeSize > 0
+      ? buildLogoPlaceholder(
+          resolvedLogoStyle.badgeSize,
+          resolvedLogoStyle.cornerRadius,
+          resolvedLogoStyle.backgroundColor,
+        )
+      : undefined;
+
+    const downloadSize = item.style.downloadSize || 500;
+
+    const qr = new QRCodeStyling({
+      width: downloadSize,
+      height: downloadSize,
+      data: item.value,
+      ...(logoPlaceholder
+        ? {
+            image: logoPlaceholder,
+            imageOptions: {
+              hideBackgroundDots: true,
+              imageSize: 0.25,
+              margin: 8,
+              crossOrigin: 'anonymous' as const,
+            },
+          }
+        : {}),
+      dotsOptions: {
+        color: item.style.fgColor,
+        type: bodyShapeToDotType[item.style.bodyShape],
+      },
+      cornersSquareOptions: {
+        color: item.style.patternColor || item.style.fgColor,
+        type: bodyShapeToCornerSquareType[item.style.bodyShape],
+      },
+      cornersDotOptions: {
+        color: item.style.patternColor || item.style.fgColor,
+        type: bodyShapeToCornerDotType[item.style.bodyShape],
+      },
+      backgroundOptions: {
+        color: item.style.bgColor,
+      },
+      qrOptions: {
+        errorCorrectionLevel: 'H',
+      },
+    });
+
+    const raw = await qr.getRawData('png');
+    if (!(raw instanceof Blob)) throw new Error('Could not generate QR image');
+
+    const qrUrl = URL.createObjectURL(raw);
+    const qrImg = new Image();
+    qrImg.src = qrUrl;
+    await new Promise((resolve, reject) => {
+      qrImg.onload = resolve;
+      qrImg.onerror = reject;
+    });
+
+    const scanLabelStyle = { ...defaultScanLabelStyle, ...(item.style.scanLabelStyle || {}) };
+    const labelText = (item.style.scanText || '').trim();
+    const includeLabel = Boolean(labelText);
+    const padding = Math.round(downloadSize * 0.08);
+    const fontSize = Math.max(16, Math.round(scanLabelStyle.fontSize * (downloadSize / 400)));
+    const textAreaHeight = Math.round(fontSize * 1.6);
+    const extraHeight = includeLabel ? textAreaHeight + padding : 0;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = downloadSize;
+    canvas.height = downloadSize + extraHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas unavailable');
+
+    ctx.fillStyle = item.style.bgColor || '#FFFFFF';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(qrImg, 0, 0, downloadSize, downloadSize);
+
+    if (logo && resolvedLogoStyle.badgeSize > 0) {
+      try {
+        const logoImg = new Image();
+        logoImg.crossOrigin = 'anonymous';
+        logoImg.src = logo;
+        await new Promise<void>((resolve, reject) => {
+          logoImg.onload = () => resolve();
+          logoImg.onerror = () => reject(new Error('Logo load failed'));
+        });
+
+        const badgeSize = Math.round(downloadSize * (resolvedLogoStyle.badgeSize / 100));
+        const cx = Math.round(downloadSize / 2);
+        const cy = Math.round(downloadSize / 2);
+        const badgeX = Math.round(cx - badgeSize / 2);
+        const badgeY = Math.round(cy - badgeSize / 2);
+        const badgeRadius = Math.round(badgeSize * (resolvedLogoStyle.cornerRadius / 100));
+
+        ctx.beginPath();
+        ctx.moveTo(badgeX + badgeRadius, badgeY);
+        ctx.lineTo(badgeX + badgeSize - badgeRadius, badgeY);
+        ctx.quadraticCurveTo(badgeX + badgeSize, badgeY, badgeX + badgeSize, badgeY + badgeRadius);
+        ctx.lineTo(badgeX + badgeSize, badgeY + badgeSize - badgeRadius);
+        ctx.quadraticCurveTo(badgeX + badgeSize, badgeY + badgeSize, badgeX + badgeSize - badgeRadius, badgeY + badgeSize);
+        ctx.lineTo(badgeX + badgeRadius, badgeY + badgeSize);
+        ctx.quadraticCurveTo(badgeX, badgeY + badgeSize, badgeX, badgeY + badgeSize - badgeRadius);
+        ctx.lineTo(badgeX, badgeY + badgeRadius);
+        ctx.quadraticCurveTo(badgeX, badgeY, badgeX + badgeRadius, badgeY);
+        ctx.closePath();
+
+        if (resolvedLogoStyle.backgroundColor !== 'transparent') {
+          ctx.fillStyle = resolvedLogoStyle.backgroundColor;
+          ctx.fill();
+        }
+
+        const logoPad = Math.round(badgeSize * (resolvedLogoStyle.padding / 100));
+        const lSize = badgeSize - logoPad * 2;
+        ctx.drawImage(logoImg, cx - lSize / 2, cy - lSize / 2, lSize, lSize);
+      } catch {
+        // Ignore logo draw failures (CORS) and still render base QR.
+      }
+    }
+
+    if (includeLabel) {
+      ctx.fillStyle = getContrastingTextColor(item.style.bgColor || '#FFFFFF');
+      ctx.font = `${scanLabelStyle.fontWeight} ${fontSize}px "${scanLabelStyle.fontFamily}", Satoshi, system-ui, -apple-system, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(
+        scanLabelStyle.uppercase ? labelText.toUpperCase() : labelText,
+        canvas.width / 2,
+        downloadSize + padding / 2 + textAreaHeight / 2,
+      );
+    }
+
+    URL.revokeObjectURL(qrUrl);
+
+    return new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (!blob) reject(new Error('Could not generate PNG'));
+        else resolve(blob);
+      }, 'image/png');
+    });
+  };
+
+  const copyQrImage = async (item: SavedQRCode) => {
+    try {
+      const blob = await getSavedQrPngBlob(item);
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      toast({ title: 'Copied!', description: 'QR code image copied to clipboard.' });
+    } catch (error) {
+      const description = error instanceof Error ? error.message : 'Copy failed';
+      toast({ title: 'Could not copy image', description, variant: 'destructive' });
     }
   };
 
@@ -801,16 +975,15 @@ export default function Dashboard() {
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 pt-6 sm:px-6 lg:px-8">
         <header className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Library</p>
-            <h1 className="font-heading text-2xl font-bold text-foreground sm:text-3xl">Saved QR Codes Dashboard</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Save unlimited dynamic QR codes with full scan analytics, visitor tracking, and geo-insights — free for personal and commercial use.</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Dashboard</p>
+            <h1 className="font-heading text-2xl font-bold text-foreground sm:text-3xl">Saved QR Codes</h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <ThemeToggle />
             <Button asChild variant="outline" className="rounded-full">
-              <Link to="/" className="inline-flex items-center gap-2">
-                <ArrowLeft className="h-4 w-4" />
-                Back to creator
+                  <Link href="/" className="inline-flex items-center gap-2">
+                <Icon icon="lucide:arrow-left" className="h-4 w-4" />
+                Back to canvas
               </Link>
             </Button>
             <Button variant="destructive" onClick={clearAll} disabled={savedQRCodes.length === 0} className="rounded-full">
@@ -856,7 +1029,7 @@ export default function Dashboard() {
         </section>
 
         <section className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Icon icon="lucide:search" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -868,7 +1041,7 @@ export default function Dashboard() {
         {loading ? (
           <Card>
             <CardContent className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Icon icon="bx:loader-circle" className="h-4 w-4 animate-spin" />
               Loading saved QR codes
             </CardContent>
           </Card>
@@ -876,12 +1049,12 @@ export default function Dashboard() {
           <Card className="border-dashed">
             <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
               <div className="rounded-full bg-secondary p-3">
-                <QrCode className="h-6 w-6 text-muted-foreground" />
+                <Icon icon="lucide:qr-code" className="h-6 w-6 text-muted-foreground" />
               </div>
               <h2 className="font-heading text-xl font-bold text-foreground">No saved QR codes yet</h2>
               <p className="max-w-md text-sm text-muted-foreground">Go to the creator, generate a QR code, and click Save to start building your dashboard library.</p>
               <Button asChild className="rounded-full">
-                <Link to="/">Create first QR</Link>
+                <Link href="/">Create first QR</Link>
               </Button>
             </CardContent>
           </Card>
@@ -889,108 +1062,146 @@ export default function Dashboard() {
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {filteredItems.map((item) => {
               const createdAgo = formatDistanceToNow(new Date(item.createdAt), { addSuffix: true });
-              const qrBg = item.style.bgColor || '#FFFFFF';
-              const cardTextColor = getContrastingTextColor(qrBg);
-              const cardMutedColor = cardTextColor === '#FFFFFF' ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.5)';
+              const cardDestination = item.targetValue || item.value;
+              const cardDestinationSummary = formatDestinationSummary(cardDestination);
+              const cardTrackingSummary = item.trackingUrl ? formatDestinationSummary(item.trackingUrl) : null;
 
               return (
                 <Card key={item.id} className="flex h-full flex-col overflow-hidden">
                   <CardContent className="flex flex-1 flex-col p-0">
-                    <div className="flex flex-1 items-start gap-4 border-b border-border p-4" style={{ background: item.style.bgGradient || item.style.bgColor }}>
-                      <SavedQrStyledPreview item={item} size={88} />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge variant="secondary">{qrTypeLabel[item.type]}</Badge>
-                          <span className="text-xs" style={{ color: cardMutedColor }}>{createdAgo}</span>
-                        </div>
-                        <h3 className="mt-2 truncate font-heading text-lg font-bold" style={{ color: cardTextColor }}>{item.name}</h3>
-                        <p className="mt-1 line-clamp-2 break-all text-sm" style={{ color: cardMutedColor }}>{item.value}</p>
-                        {item.trackingEnabled && (
-                          <div className="mt-2 flex items-center gap-3 text-xs" style={{ color: cardMutedColor }}>
-                            <span className="flex items-center gap-1 font-medium">
-                              <BarChart2 className="h-3 w-3" />
-                              {item.stats.scanCount} scan{item.stats.scanCount !== 1 ? 's' : ''}
-                            </span>
-                            {item.stats.lastScannedAt && (
-                              <span>Last: {formatDistanceToNow(new Date(item.stats.lastScannedAt), { addSuffix: true })}</span>
+                    <div className="relative border-b border-border p-4" style={{ background: item.style.bgGradient || item.style.bgColor }}>
+                      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-black/5 via-transparent to-black/20 dark:from-black/25 dark:to-black/55" />
+                      <div className="relative flex items-start gap-4 rounded-2xl border border-border/80 bg-card/95 p-3 text-card-foreground shadow-md backdrop-blur-md dark:bg-card/90">
+                        <SavedQrStyledPreview item={item} size={88} />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant="secondary">{qrTypeLabel[item.type]}</Badge>
+                            <span className="rounded-full bg-muted/90 px-2 py-0.5 text-xs text-foreground/80">{createdAgo}</span>
+                          </div>
+                          <div className="mt-2 space-y-1.5">
+                            <p className="flex items-center gap-1.5 text-sm text-foreground/80" title={cardDestination}>
+                              <Icon icon="lucide:target" className="h-3.5 w-3.5 shrink-0" />
+                              <span className="truncate">{cardDestinationSummary}</span>
+                            </p>
+                            {cardTrackingSummary && (
+                              <p className="flex items-center gap-1.5 text-sm text-foreground/80" title={item.trackingUrl || undefined}>
+                                <Icon icon="lucide:link-2" className="h-3.5 w-3.5 shrink-0" />
+                                <span className="truncate">{cardTrackingSummary}</span>
+                              </p>
                             )}
                           </div>
-                        )}
+
+                          {item.trackingEnabled && (
+                            <div className="mt-3 flex items-center gap-3 border-t border-border/80 pt-2 text-xs text-foreground/75">
+                              <span className="flex items-center gap-1 font-medium text-foreground">
+                                <Icon icon="lucide:bar-chart-2" className="h-3 w-3" />
+                                {item.stats.scanCount} scan{item.stats.scanCount !== 1 ? 's' : ''}
+                              </span>
+                              {item.stats.lastScannedAt && (
+                                <span>Last {formatDistanceToNow(new Date(item.stats.lastScannedAt), { addSuffix: true })}</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    <div className="mt-auto grid grid-cols-2 gap-2 p-4">
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button variant="outline" className="col-span-2 rounded-full">
-                            <QrCode className="h-4 w-4" />
-                            Preview full QR
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-lg">
-                          <DialogHeader>
-                            <DialogTitle>{item.name}</DialogTitle>
-                            <DialogDescription>
-                              Full preview and redownload for this saved QR code.
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="flex justify-center py-3" style={{ background: item.style.bgGradient || item.style.bgColor }}>
-                            <SavedQrStyledPreview item={item} size={280} />
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <Button variant="outline" className="rounded-full" onClick={() => copyValue(item.value)}>
-                              <Copy className="h-4 w-4" />
-                              Copy QR value
-                            </Button>
-                            <Button className="rounded-full" onClick={() => downloadSavedQr(item)}>
-                              <Download className="h-4 w-4" />
-                              Download PNG
-                            </Button>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                      <Button variant="outline" className="rounded-full" onClick={() => copyValue(item.value)}>
-                        <Copy className="h-4 w-4" />
-                        Copy QR value
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="rounded-full"
-                        disabled={!item.trackingUrl}
-                        onClick={() => item.trackingUrl && copyValue(item.trackingUrl)}
-                      >
-                        <Link2 className="h-4 w-4" />
-                        Copy tracking
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="col-span-2 rounded-full"
-                        onClick={() => openDestinationEditor(item)}
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                        {item.trackingEnabled ? 'Edit destination' : 'Edit content'}
-                      </Button>
-                      {item.trackingEnabled && (
+                    <div className="mt-auto flex flex-col gap-2 p-4">
+                      {/* Copy actions */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button variant="outline" className="rounded-full" onClick={() => copyValue(item.targetValue)}>
+                          <Icon icon="lucide:copy" className="h-4 w-4" />
+                          Copy destination
+                        </Button>
                         <Button
                           variant="outline"
-                          className="col-span-2 rounded-full"
-                          onClick={() => openAnalytics(item)}
+                          className="rounded-full"
+                          disabled={!item.trackingUrl}
+                          onClick={() => item.trackingUrl && copyValue(item.trackingUrl)}
                         >
-                          <BarChart2 className="h-4 w-4" />
-                          View analytics
+                          <Icon icon="lucide:link-2" className="h-4 w-4" />
+                          Copy short link
                         </Button>
-                      )}
-                      <Button
-                        variant="outline"
-                        className="col-span-2 rounded-full"
-                        disabled={!canOpenInBrowser(item)}
-                        onClick={() => window.open(item.targetValue, '_blank', 'noopener,noreferrer')}
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                        Open destination
-                      </Button>
-                      <Button variant="destructive" className="col-span-2 rounded-full" onClick={() => deleteItem(item)}>
-                        <Trash2 className="h-4 w-4" />
+                      </div>
+
+                      {/* Manage actions */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          variant="outline"
+                          className="rounded-full"
+                          onClick={() => openDestinationEditor(item)}
+                        >
+                          <Icon icon="lucide:pencil" className="h-4 w-4" />
+                          {item.trackingEnabled ? 'Edit destination' : 'Edit content'}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="rounded-full"
+                          disabled={!canOpenInBrowser(item)}
+                          onClick={() => window.open(item.targetValue, '_blank', 'noopener,noreferrer')}
+                        >
+                          <Icon icon="lucide:external-link" className="h-4 w-4" />
+                          Open destination
+                        </Button>
+                      </div>
+
+                      {/* View actions */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" className="rounded-full">
+                              <Icon icon="lucide:qr-code" className="h-4 w-4" />
+                              Preview QR
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-lg">
+                            <DialogHeader>
+                              <DialogTitle>{item.name}</DialogTitle>
+                              <DialogDescription>
+                                Full preview and redownload for this saved QR code.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="flex justify-center py-3" style={{ background: item.style.bgGradient || item.style.bgColor }}>
+                              <SavedQrStyledPreview item={item} size={280} />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                              <div className="grid grid-cols-2 gap-2">
+                                <Button variant="outline" className="rounded-full" disabled={!item.trackingUrl} onClick={() => item.trackingUrl && copyValue(item.trackingUrl)}>
+                                  <Icon icon="lucide:link-2" className="h-4 w-4" />
+                                  {item.trackingUrl ? 'Copy short link' : 'Copy destination'}
+                                </Button>
+                                <Button variant="outline" className="rounded-full" onClick={() => copyQrImage(item)}>
+                                  <Icon icon="lucide:copy" className="h-4 w-4" />
+                                  Copy QR code
+                                </Button>
+                              </div>
+                              <Button className="rounded-full" onClick={() => downloadSavedQr(item)}>
+                                <Icon icon="lucide:download" className="h-4 w-4" />
+                                Download QR code
+                              </Button>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                        {item.trackingEnabled ? (
+                          <Button
+                            variant="outline"
+                            className="rounded-full"
+                            onClick={() => openAnalytics(item)}
+                          >
+                            <Icon icon="lucide:bar-chart-2" className="h-4 w-4" />
+                            View analytics
+                          </Button>
+                        ) : (
+                          <Button variant="outline" className="rounded-full" onClick={() => downloadSavedQr(item)}>
+                            <Icon icon="lucide:download" className="h-4 w-4" />
+                            Download QR code
+                          </Button>
+                        )}
+                      </div>
+
+                      {/* Destructive */}
+                      <Button variant="destructive" className="rounded-full" onClick={() => deleteItem(item)}>
+                        <Icon icon="lucide:trash-2" className="h-4 w-4" />
                         Remove
                       </Button>
                     </div>
@@ -1006,14 +1217,14 @@ export default function Dashboard() {
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <BarChart2 className="h-4 w-4" />
+              <Icon icon="lucide:bar-chart-2" className="h-4 w-4" />
               {analyticsQr?.name}
             </DialogTitle>
             <DialogDescription>Scan analytics from tracking events</DialogDescription>
           </DialogHeader>
           {scanEventsLoading ? (
             <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin" />
+              <Icon icon="bx:loader-circle" className="h-5 w-5 animate-spin" />
               Loading scan events…
             </div>
           ) : analyticsQr ? (
@@ -1034,7 +1245,7 @@ export default function Dashboard() {
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <ExternalLink className="h-4 w-4" />
+              <Icon icon="lucide:external-link" className="h-4 w-4" />
               {editingQr?.trackingEnabled ? 'Edit destination' : 'Edit content'}
             </DialogTitle>
             <DialogDescription>

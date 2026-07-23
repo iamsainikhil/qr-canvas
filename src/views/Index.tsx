@@ -1,10 +1,13 @@
+"use client";
+
 import { useEffect, useMemo, useState } from 'react';
 import { QRPreview } from '@/components/QRPreview';
-import { QRTypeSelector, QRType } from '@/components/QRTypeSelector';
+import { QRTypeSelector, QRType, qrTypes } from '@/components/QRTypeSelector';
 import { QRStyleTabs, FrameStyle } from '@/components/QRStyleTabs';
 import { BodyShape } from '@/components/BodyShapeSelector';
-import { Link } from 'react-router-dom';
-import { LayoutDashboard, Moon, Sun } from 'lucide-react';
+import Link from 'next/link';
+import { Icon } from '@iconify/react';
+import { getImageSrc } from '@/lib/utils';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 
 import { defaultLogoStyleOptions, LogoStyleOptions } from '@/components/logoStyle';
@@ -21,17 +24,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-// Import QR type icons
-import urlIcon from '@/assets/qr-type-url.webp';
-import textIcon from '@/assets/qr-type-text.webp';
-import wifiIcon from '@/assets/qr-type-wifi.webp';
-import emailIcon from '@/assets/qr-type-email.webp';
-import smsIcon from '@/assets/qr-type-sms.webp';
-import imageIcon from '@/assets/qr-type-image.webp';
-import pdfIcon from '@/assets/qr-type-pdf.webp';
-import mp3Icon from '@/assets/qr-type-mp3.webp';
-import appIcon from '@/assets/qr-type-app.webp';
-import videoIcon from '@/assets/qr-type-video.webp';
 import { getCurrentOwnerUid } from '@/lib/authOwner';
 import { saveQrCodeForOwner, subscribeToOwnerQrCodes } from '@/lib/firestoreQrCodes';
 import { storage } from '@/integrations/firebase/client';
@@ -115,21 +107,8 @@ const deriveLogoDevLookup = (
   return null;
 };
 
-const qrTypeOptions: { id: QRType; label: string; image: string }[] = [
-  { id: 'url', label: 'URL', image: urlIcon },
-  { id: 'text', label: 'Text', image: textIcon },
-  { id: 'wifi', label: 'Wi-Fi', image: wifiIcon },
-  { id: 'email', label: 'E-mail', image: emailIcon },
-  { id: 'sms', label: 'SMS', image: smsIcon },
-  { id: 'image', label: 'Image', image: imageIcon },
-  { id: 'pdf', label: 'PDF', image: pdfIcon },
-  { id: 'mp3', label: 'MP3', image: mp3Icon },
-  { id: 'app', label: 'App', image: appIcon },
-  { id: 'video', label: 'Video', image: videoIcon },
-];
-
 const Index = () => {
-  const logoDevPublishableKey = import.meta.env.VITE_LOGO_DEV_PUBLISHABLE_KEY;
+  const logoDevPublishableKey = process.env.NEXT_PUBLIC_LOGO_DEV_PUBLISHABLE_KEY;
   const { toast } = useToast();
   const { theme, toggleTheme } = useTheme();
 
@@ -262,7 +241,7 @@ const Index = () => {
     }
 
     if (!storage) {
-      throw new Error('Firebase Storage is not configured. Check VITE_FIREBASE_* env vars.');
+      throw new Error('Firebase Storage is not configured. Check NEXT_PUBLIC_FIREBASE_* env vars.');
     }
 
     const allowedMimePatterns = uploadableMimePrefixes[type];
@@ -376,21 +355,21 @@ const Index = () => {
             </div>
             <div className="flex items-center gap-2">
               <Button
-                variant="outline"
-                size="sm"
+                variant="ghost"
+                size="icon"
                 onClick={toggleTheme}
                 className="rounded-full"
                 title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
               >
                 {theme === 'light' ? (
-                  <Moon className="h-4 w-4" />
+                  <Icon icon="line-md:sunny-outline-to-moon-loop-transition" className="!size-5" />
                 ) : (
-                  <Sun className="h-4 w-4" />
+                  <Icon icon="line-md:moon-to-sunny-outline-loop-transition" className="!size-5" />
                 )}
               </Button>
               <Button asChild variant="paper" className="rounded-full">
-              <Link to="/dashboard" className="inline-flex items-center gap-2">
-                <LayoutDashboard className="h-4 w-4" />
+              <Link href="/dashboard" className="inline-flex items-center gap-2">
+                <Icon icon="lucide:layout-dashboard" className="h-4 w-4" />
                 Dashboard ({savedCount})
               </Link>
             </Button>
@@ -406,11 +385,11 @@ const Index = () => {
               <SelectTrigger className="w-full h-14 rounded-xl bg-background border-border focus:ring-0 focus:ring-offset-0 focus:outline-none focus:border-border">
                 <SelectValue>
                   {(() => {
-                    const selected = qrTypeOptions.find(opt => opt.id === qrType);
+                    const selected = qrTypes.find(opt => opt.id === qrType);
                     return selected ? (
                       <div className="flex items-center gap-3">
                         <img 
-                          src={selected.image} 
+                          src={getImageSrc(selected.image)} 
                           alt={selected.label} 
                           className="w-10 h-7 rounded object-cover"
                         />
@@ -421,11 +400,11 @@ const Index = () => {
                 </SelectValue>
               </SelectTrigger>
               <SelectContent className="bg-card border-border z-50">
-                {qrTypeOptions.map((type) => (
+                {qrTypes.map((type) => (
                   <SelectItem key={type.id} value={type.id} className="h-14 py-2">
                     <div className="flex items-center gap-3">
                       <img 
-                        src={type.image} 
+                        src={getImageSrc(type.image)} 
                         alt={type.label} 
                         className="w-10 h-7 rounded object-cover"
                       />

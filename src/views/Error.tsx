@@ -1,34 +1,49 @@
+"use client";
+
 import { useEffect, useState } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import Link from 'next/link';
 import Lottie from 'lottie-react';
-import { Home, RefreshCw } from 'lucide-react';
+import { Icon } from '@iconify/react';
 import { Button } from '@/components/ui/button';
 
-type ErrorReason = 'not_found' | 'disabled' | 'error' | 'invalid';
+type ErrorReason =
+    | 'page_not_found'
+    | 'page_error'
+    | 'qr_not_found'
+    | 'qr_disabled'
+    | 'qr_error'
+    | 'qr_invalid';
 
 const errorContent: Record<ErrorReason, { title: string; description: string }> = {
-  not_found: {
+    page_not_found: {
+        title: 'Page not found',
+        description: 'This page doesn\'t exist, or the link you used is broken or outdated.',
+    },
+    page_error: {
+        title: 'Something went wrong',
+        description: 'We couldn\'t load this page. Please try again or head back home.',
+    },
+    qr_not_found: {
     title: 'QR code not found',
     description: 'This QR code doesn\'t exist or may have been deleted.',
   },
-  disabled: {
+    qr_disabled: {
     title: 'QR code disabled',
     description: 'This QR code has been deactivated and is no longer accepting scans.',
   },
-  error: {
+    qr_error: {
     title: 'Something went wrong',
     description: 'We couldn\'t process this QR redirect. Please try again or contact the QR owner.',
   },
-  invalid: {
+    qr_invalid: {
     title: 'Invalid QR link',
     description: 'This QR link appears to be malformed or incomplete.',
   },
 };
 
-export default function ScanError() {
-    const [searchParams] = useSearchParams();
-    const reason = (searchParams.get('reason') as ErrorReason) || 'error';
-    const content = errorContent[reason] ?? errorContent.error;
+export default function Error({ reason }: { reason?: string }) {
+        const normalizedReason = (reason as ErrorReason) || 'page_error';
+        const content = errorContent[normalizedReason] ?? errorContent.page_error;
 
     const [animationData, setAnimationData] = useState<object | null>(null);
 
@@ -72,8 +87,8 @@ export default function ScanError() {
 
                     <div className="flex flex-wrap items-center justify-center gap-3">
                         <Button asChild className="rounded-full">
-                            <Link to="/">
-                                <Home className="h-4 w-4" />
+                            <Link href="/">
+                                <Icon icon="lucide:home" className="h-4 w-4" />
                                 Go home
                             </Link>
                         </Button>
@@ -82,7 +97,7 @@ export default function ScanError() {
                             className="rounded-full"
                             onClick={() => window.history.back()}
                         >
-                            <RefreshCw className="h-4 w-4" />
+                            <Icon icon="lucide:refresh-cw" className="h-4 w-4" />
                             Go back
                         </Button>
                     </div>
