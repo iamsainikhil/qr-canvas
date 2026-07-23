@@ -13,6 +13,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   plugins: [react()],
+  assetsInclude: ['**/*.html'],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
