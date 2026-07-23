@@ -40,6 +40,8 @@ coverage
 .npm
 package-json.lock
 node_modules.bun
+bun.lock
+bun.lockb
 
 # Optional local databases and reports
 *.sqlite
