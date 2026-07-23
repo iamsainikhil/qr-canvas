@@ -365,79 +365,83 @@ const Index = () => {
 
         {/* Main Content */}
         <div className="flex min-h-screen flex-col xl:h-screen xl:min-h-0 xl:flex-1">
-        <div className="flex items-center justify-between border-b border-border bg-background px-4 py-3 sm:px-6 xl:px-8">
-          <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="QR Canvas" className="w-14 h-14 rounded-lg" />
-            <div>
-              <h1 className="font-heading text-xl font-bold text-foreground">QR Canvas</h1>
-              <p className="text-sm text-muted-foreground">Unlimited dynamic QR codes with scan tracking — free, open-source, self-hosted</p>
+        <div className="mx-auto w-full max-w-7xl px-4 pt-4 sm:px-6 lg:px-8 xl:pt-6">
+          <header className="flex items-center justify-between rounded-2xl border border-border bg-card px-5 py-4">
+            <div className="flex items-center gap-3">
+              <img src="/logo.png" alt="QR Canvas" className="w-12 h-12 rounded-xl" />
+              <div>
+                <h1 className="font-heading text-xl font-bold text-foreground">QR Canvas</h1>
+                <p className="text-sm text-muted-foreground">Generate unlimited dynamic QR codes with scan tracking</p>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleTheme}
-              className="rounded-full"
-              title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
-            >
-              {theme === 'light' ? (
-                <Moon className="h-4 w-4" />
-              ) : (
-                <Sun className="h-4 w-4" />
-              )}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleTheme}
+                className="rounded-full"
+                title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+              >
+                {theme === 'light' ? (
+                  <Moon className="h-4 w-4" />
+                ) : (
+                  <Sun className="h-4 w-4" />
+                )}
+              </Button>
+              <Button asChild variant="paper" className="rounded-full">
+              <Link to="/dashboard" className="inline-flex items-center gap-2">
+                <LayoutDashboard className="h-4 w-4" />
+                Dashboard ({savedCount})
+              </Link>
             </Button>
-            <Button asChild variant="paper" className="rounded-full">
-            <Link to="/dashboard" className="inline-flex items-center gap-2">
-              <LayoutDashboard className="h-4 w-4" />
-              Dashboard ({savedCount})
-            </Link>
-          </Button>
-          </div>
+            </div>
+          </header>
         </div>
 
         {/* Mobile QR Type Selector - Dropdown */}
-        <div className="w-full max-w-full overflow-hidden border-b border-border bg-background p-4 xl:hidden">
-          <h2 className="font-heading text-[20px] font-bold tracking-tight text-foreground leading-[120%] mb-3">Select QR type</h2>
-          <Select value={qrType} onValueChange={(value) => setQrType(value as QRType)}>
-            <SelectTrigger className="w-full h-14 rounded-xl bg-background border-border focus:ring-0 focus:ring-offset-0 focus:outline-none focus:border-border">
-              <SelectValue>
-                {(() => {
-                  const selected = qrTypeOptions.find(opt => opt.id === qrType);
-                  return selected ? (
+        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 xl:hidden">
+          <div className="mb-4 rounded-2xl border border-border bg-card p-4">
+            <h2 className="font-heading text-[20px] font-bold tracking-tight text-foreground leading-[120%] mb-3">Select QR type</h2>
+            <Select value={qrType} onValueChange={(value) => setQrType(value as QRType)}>
+              <SelectTrigger className="w-full h-14 rounded-xl bg-background border-border focus:ring-0 focus:ring-offset-0 focus:outline-none focus:border-border">
+                <SelectValue>
+                  {(() => {
+                    const selected = qrTypeOptions.find(opt => opt.id === qrType);
+                    return selected ? (
+                      <div className="flex items-center gap-3">
+                        <img 
+                          src={selected.image} 
+                          alt={selected.label} 
+                          className="w-10 h-7 rounded object-cover"
+                        />
+                        <span className="font-medium">{selected.label}</span>
+                      </div>
+                    ) : 'Select type';
+                  })()}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent className="bg-card border-border z-50">
+                {qrTypeOptions.map((type) => (
+                  <SelectItem key={type.id} value={type.id} className="h-14 py-2">
                     <div className="flex items-center gap-3">
                       <img 
-                        src={selected.image} 
-                        alt={selected.label} 
+                        src={type.image} 
+                        alt={type.label} 
                         className="w-10 h-7 rounded object-cover"
                       />
-                      <span className="font-medium">{selected.label}</span>
+                      <span className="font-medium">{type.label}</span>
                     </div>
-                  ) : 'Select type';
-                })()}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent className="bg-card border-border z-50">
-              {qrTypeOptions.map((type) => (
-                <SelectItem key={type.id} value={type.id} className="h-14 py-2">
-                  <div className="flex items-center gap-3">
-                    <img 
-                      src={type.image} 
-                      alt={type.label} 
-                      className="w-10 h-7 rounded object-cover"
-                    />
-                    <span className="font-medium">{type.label}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        <div className="flex flex-1 flex-col md:flex-row md:items-start xl:min-h-0">
+        <div className="flex flex-1 flex-col md:flex-row md:items-center xl:min-h-0">
           {/* Center - QR Preview */}
-          <main className="flex w-full min-w-0 flex-col items-center px-4 pb-4 pt-3 sm:px-6 md:w-[360px] md:flex-shrink-0 md:px-6 md:pb-6 md:pt-6 lg:w-[420px] xl:flex-1 xl:overflow-y-auto xl:overflow-x-hidden xl:px-8 xl:pt-4">
-            <div className="w-full max-w-md rounded-3xl border border-border bg-card p-4 sm:p-5 lg:max-w-[420px]" style={{ boxShadow: '0 14px 8px 0 rgba(64, 64, 64, 0.04), 0 6px 6px 0 rgba(64, 64, 64, 0.07), 0 2px 3px 0 rgba(64, 64, 64, 0.08)' }}>
+          <main className="flex w-full min-w-0 flex-col items-center justify-center px-4 pb-4 pt-4 sm:px-6 md:flex-1 md:px-8 md:pb-6 md:pt-8 xl:overflow-y-auto xl:overflow-x-hidden xl:px-12 xl:pt-8">
+            <div className="w-full max-w-md rounded-3xl border border-border bg-card p-4 sm:p-5" style={{ boxShadow: '0 14px 8px 0 rgba(64, 64, 64, 0.04), 0 6px 6px 0 rgba(64, 64, 64, 0.07), 0 2px 3px 0 rgba(64, 64, 64, 0.08)' }}>
               <h2 className="font-heading text-[20px] font-bold tracking-tight text-foreground leading-[120%] mb-3">Live preview</h2>
               <QRPreview
                 qrValue={qrValue}
@@ -459,7 +463,7 @@ const Index = () => {
           </main>
 
           {/* Right - Style Panel */}
-          <aside className="w-full max-w-full min-w-0 overflow-x-hidden px-4 pb-8 pt-6 sm:px-6 md:flex-1 md:border-l md:border-border/60 md:px-6 md:pt-6 xl:h-full xl:w-[440px] xl:flex-shrink-0 xl:overflow-y-auto xl:bg-background xl:px-8 xl:pt-8">
+          <aside className="w-full max-w-full min-w-0 overflow-x-hidden px-4 pb-8 pt-6 sm:px-6 md:w-[400px] md:flex-shrink-0 md:border-l md:border-border/60 md:px-6 md:pt-6 xl:h-full xl:w-[440px] xl:overflow-y-auto xl:px-8 xl:pt-8">
             <QRStyleTabs
               qrType={qrType}
               value={currentValue}
