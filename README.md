@@ -342,6 +342,8 @@ Captured scan data: timestamp, visitor cookie ID, user agent, referrer, country/
 
 - **UI-only development**: Use `npm run dev` for rapid component iteration
 - **Testing redirects**: Use `vercel dev` to emulate the Vercel serverless environment
+- **`vercel.json` `devCommand` scope**: `devCommand` is used by the Vercel CLI during local `vercel dev` sessions; it is not a production runtime process
+- **Production behavior**: Vercel runs `installCommand` and `buildCommand` at build/deploy time, then serves static assets + serverless functions (no long-running `npm run dev` in prod)
 - **Firebase required** for save, tracking, and analytics features
 - **Vercel deployment** is optional but recommended for testing redirects
 - This project follows a local-first workflow — no cloud dependency for UI development
