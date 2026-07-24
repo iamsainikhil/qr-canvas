@@ -296,8 +296,8 @@ See [Firebase Console Setup](#firebase-console-setup) to configure Auth, Firesto
 | `NEXT_PUBLIC_FIREBASE_APP_ID` | Yes | Firebase app ID |
 | `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` | No | Firebase analytics measurement ID |
 | `NEXT_PUBLIC_PRIVATE_MODE` | No | `true` to enforce owner-only login |
-| `NEXT_PUBLIC_OWNER_EMAIL` | If private | Email of the single allowed user |
 | `NEXT_PUBLIC_LOGO_DEV_PUBLISHABLE_KEY` | No | Enables logo.dev auto-lookup |
+| `OWNER_EMAIL` | If private | Server-only email of the single allowed user |
 
 ### Serverless (Vercel)
 
@@ -315,10 +315,10 @@ See [Firebase Console Setup](#firebase-console-setup) to configure Auth, Firesto
 To lock the app so only you can use it:
 
 1. Enable Google sign-in in Firebase Auth and add your Vercel domain.
-2. Set `NEXT_PUBLIC_PRIVATE_MODE=true` and `NEXT_PUBLIC_OWNER_EMAIL` in Vercel.
+2. Set `NEXT_PUBLIC_PRIVATE_MODE=true` and `OWNER_EMAIL` in Vercel.
 3. (Optional) Enable Vercel Password Protection for an extra lock.
 
-With this enabled, only the Google user matching `NEXT_PUBLIC_OWNER_EMAIL` can sign in and access the app. The first sign-in creates an `app_config/private` Firestore document that permanently locks the project to that Firebase Auth UID.
+With this enabled, the app verifies sign-in tokens on the server and only allows the Google user matching `OWNER_EMAIL`. The first allowed sign-in creates an `app_config/private` Firestore document that permanently locks the project to that Firebase Auth UID.
 
 ---
 

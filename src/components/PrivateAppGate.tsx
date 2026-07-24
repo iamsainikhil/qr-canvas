@@ -21,13 +21,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { useToast } from '@/hooks/use-toast';
 
 const PRIVATE_MODE = process.env.NEXT_PUBLIC_PRIVATE_MODE === 'true';
-const OWNER_EMAIL = (process.env.NEXT_PUBLIC_OWNER_EMAIL ?? '').trim().toLowerCase();
 const GITHUB_REPO = 'https://github.com/iamsainikhil/qr-canvas';
-
-const isOwnerUser = (user: User | null) => {
-  if (!OWNER_EMAIL) return false;
-  return (user?.email ?? '').trim().toLowerCase() === OWNER_EMAIL;
-};
 
 function GateHeader() {
   const { theme, toggleTheme } = useTheme();
@@ -97,7 +91,7 @@ function PrivateAccessSetupError() {
           <CardHeader className="text-center">
             <CardTitle className="font-heading text-2xl">Private mode needs setup</CardTitle>
             <CardDescription>
-              Set NEXT_PUBLIC_OWNER_EMAIL and Firebase client env vars to lock this deployment.
+              Set OWNER_EMAIL and Firebase client env vars to lock this deployment.
             </CardDescription>
           </CardHeader>
           {missing ? (
@@ -220,14 +214,45 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
   const [user, setUser] = useState<User | null>(null);
   const [checking, setChecking] = useState(PRIVATE_MODE);
   const [signingIn, setSigningIn] = useState(false);
+  const [ownerConfigured, setOwnerConfigured] = useState(true);
+  const [ownerAllowed, setOwnerAllowed] = useState(false);
   const { toast } = useToast();
 
-  const isOwner = useMemo(() => isOwnerUser(user), [user]);
+  const isOwner = useMemo(() => ownerAllowed, [ownerAllowed]);
+
+  useEffect(() => {
+    if (!PRIVATE_MODE) return;
+
+    let cancelled = false;
+
+    const loadOwnerConfig = async () => {
+      try {
+        const response = await fetch('/api/private/owner', {
+          method: 'GET',
+          cache: 'no-store',
+        });
+        const data = (await response.json()) as { ownerConfigured?: boolean };
+        if (!cancelled) {
+          setOwnerConfigured(Boolean(data.ownerConfigured));
+        }
+      } catch {
+        if (!cancelled) {
+          setOwnerConfigured(false);
+        }
+      }
+    };
+
+    void loadOwnerConfig();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!user || !firestore) return;
 
-    if (!isOwnerUser(user)) return;
+    if (!isOwner) return;
 
     let cancelled = false;
 
@@ -261,13 +286,42 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
     return () => {
       cancelled = true;
     };
-  }, [user, toast]);
+  }, [isOwner, user, toast]);
+
+  const verifyOwnerAccess = async (nextUser: User) => {
+    try {
+      const token = await nextUser.getIdToken();
+      const response = await fetch('/api/private/owner', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = (await response.json()) as {
+        allowed?: boolean;
+        ownerConfigured?: boolean;
+      };
+
+      setOwnerConfigured(Boolean(data.ownerConfigured));
+      setOwnerAllowed(Boolean(data.allowed));
+    } catch {
+      setOwnerAllowed(false);
+    }
+  };
 
   useEffect(() => {
     if (!PRIVATE_MODE || !firebaseAuth) return;
 
-    const unsubscribe = onAuthStateChanged(firebaseAuth, (nextUser) => {
+    const unsubscribe = onAuthStateChanged(firebaseAuth, async (nextUser) => {
       setUser(nextUser);
+      if (!nextUser) {
+        setOwnerAllowed(false);
+        setChecking(false);
+        return;
+      }
+
+      setChecking(true);
+      await verifyOwnerAccess(nextUser);
       setChecking(false);
     });
 
@@ -286,16 +340,7 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
 
     setSigningIn(true);
     try {
-      const result = await signInWithPopup(firebaseAuth, googleProvider);
-      const email = (result.user.email ?? '').trim().toLowerCase();
-      if (email !== OWNER_EMAIL) {
-        await signOut(firebaseAuth);
-        toast({
-          title: 'Unauthorized account',
-          description: 'Use the configured owner Google account.',
-          variant: 'destructive',
-        });
-      }
+      await signInWithPopup(firebaseAuth, googleProvider);
     } catch (error) {
       const description = error instanceof Error ? error.message : 'Google sign-in failed';
       toast({
@@ -319,7 +364,7 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
     return <>{children}</>;
   }
 
-  if (!OWNER_EMAIL || !isFirebaseConfigured) {
+  if (!ownerConfigured || !isFirebaseConfigured) {
     return <PrivateAccessSetupError />;
   }
 
