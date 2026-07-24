@@ -4,23 +4,25 @@ import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getAnalytics, isSupported } from 'firebase/analytics';
 
+import { getEnvValue } from '@/lib/env';
+
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || undefined,
+  apiKey: getEnvValue(process.env.NEXT_PUBLIC_FIREBASE_API_KEY),
+  authDomain: getEnvValue(process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN),
+  projectId: getEnvValue(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID),
+  storageBucket: getEnvValue(process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET),
+  messagingSenderId: getEnvValue(process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID),
+  appId: getEnvValue(process.env.NEXT_PUBLIC_FIREBASE_APP_ID),
+  measurementId: getEnvValue(process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID) || undefined,
 };
 
 const missingFirebaseClientEnv = [
-  ['NEXT_PUBLIC_FIREBASE_API_KEY', process.env.NEXT_PUBLIC_FIREBASE_API_KEY],
-  ['NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN', process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN],
-  ['NEXT_PUBLIC_FIREBASE_PROJECT_ID', process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID],
-  ['NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET', process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET],
-  ['NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID', process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID],
-  ['NEXT_PUBLIC_FIREBASE_APP_ID', process.env.NEXT_PUBLIC_FIREBASE_APP_ID],
+  ['NEXT_PUBLIC_FIREBASE_API_KEY', getEnvValue(process.env.NEXT_PUBLIC_FIREBASE_API_KEY)],
+  ['NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN', getEnvValue(process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN)],
+  ['NEXT_PUBLIC_FIREBASE_PROJECT_ID', getEnvValue(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID)],
+  ['NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET', getEnvValue(process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET)],
+  ['NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID', getEnvValue(process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID)],
+  ['NEXT_PUBLIC_FIREBASE_APP_ID', getEnvValue(process.env.NEXT_PUBLIC_FIREBASE_APP_ID)],
 ] as const;
 
 const unresolvedFirebaseClientEnv = missingFirebaseClientEnv

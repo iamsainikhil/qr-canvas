@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { getBooleanEnv, getEnvValue } from '@/lib/env';
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const PRIVATE_MODE = process.env.NEXT_PUBLIC_PRIVATE_MODE === 'true';
+const PRIVATE_MODE = getBooleanEnv(process.env.NEXT_PUBLIC_PRIVATE_MODE);
 
 const getOwnerEnv = () => {
-  const privateOwner = (process.env.OWNER_EMAIL ?? '').trim();
-  const legacyOwner = (process.env.NEXT_PUBLIC_OWNER_EMAIL ?? '').trim();
+  const privateOwner = getEnvValue(process.env.OWNER_EMAIL);
+  const legacyOwner = getEnvValue(process.env.NEXT_PUBLIC_OWNER_EMAIL);
   const ownerEmail = (privateOwner || legacyOwner).toLowerCase();
 
   return {
