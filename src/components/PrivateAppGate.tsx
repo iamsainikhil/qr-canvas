@@ -91,6 +91,9 @@ function formatPrivateReason(reason: string | null) {
     'token-project-mismatch': 'The ID token belongs to a different Firebase project than the Admin SDK config.',
     'missing-token': 'No auth token was provided to the owner check endpoint.',
     'owner-mismatch': 'Signed-in Google email does not match OWNER_EMAIL.',
+    'invalid-id-token': 'Firebase rejected the ID token as invalid for this deployment.',
+    'token-expired': 'Firebase ID token expired. Sign out and sign in again.',
+    'token-revoked': 'Firebase ID token was revoked. Sign out and sign in again.',
     'invalid-token-or-server-error': 'Token verification failed or the server returned an unexpected auth error.',
     'server-error': 'Server failed while checking private mode configuration.',
   };
@@ -98,7 +101,13 @@ function formatPrivateReason(reason: string | null) {
   return reasonMap[reason] ?? `Private mode check failed: ${reason}`;
 }
 
-function PrivateAccessSetupError({ reason }: { reason: string | null }) {
+function PrivateAccessSetupError({
+  reason,
+  detail,
+}: {
+  reason: string | null;
+  detail: string | null;
+}) {
   const missing = missingFirebaseClientEnv.join(', ');
   const reasonText = formatPrivateReason(reason);
 
@@ -116,6 +125,9 @@ function PrivateAccessSetupError({ reason }: { reason: string | null }) {
           {reasonText ? (
             <CardContent className="text-center text-sm text-destructive">
               {reasonText}
+              {detail ? (
+                <p className="mt-2 break-words text-xs text-muted-foreground">Detail: {detail}</p>
+              ) : null}
             </CardContent>
           ) : null}
           {missing ? (
@@ -147,9 +159,11 @@ function PrivateAccessSetupError({ reason }: { reason: string | null }) {
 function AccessDenied({
   onSignOut,
   reason,
+  detail,
 }: {
   onSignOut: () => Promise<void>;
   reason: string | null;
+  detail: string | null;
 }) {
   const reasonText = formatPrivateReason(reason);
 
@@ -166,7 +180,12 @@ function AccessDenied({
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-3">
             {reasonText ? (
-              <p className="text-center text-xs text-destructive">{reasonText}</p>
+              <p className="text-center text-xs text-destructive">
+                {reasonText}
+                {detail ? (
+                  <span className="mt-1 block break-words text-muted-foreground">Detail: {detail}</span>
+                ) : null}
+              </p>
             ) : null}
             <Button variant="outline" className="rounded-full" onClick={onSignOut}>
               <Icon icon="line-md:logout" className="h-4 w-4" />
@@ -252,6 +271,7 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
   const [ownerConfigured, setOwnerConfigured] = useState(true);
   const [ownerAllowed, setOwnerAllowed] = useState(false);
   const [ownerCheckReason, setOwnerCheckReason] = useState<string | null>(null);
+  const [ownerCheckDetail, setOwnerCheckDetail] = useState<string | null>(null);
   const { toast } = useToast();
 
   const isOwner = useMemo(() => ownerAllowed, [ownerAllowed]);
@@ -270,15 +290,27 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
         const data = (await response.json()) as {
           ownerConfigured?: boolean;
           reason?: string;
+          debug?: {
+            errorCode?: string | null;
+            errorMessage?: string | null;
+            adminProjectId?: string | null;
+            clientProjectId?: string | null;
+          };
         };
         if (!cancelled) {
           setOwnerConfigured(Boolean(data.ownerConfigured));
           setOwnerCheckReason(data.reason ?? null);
+          const configDebug =
+            data.reason === 'firebase-project-mismatch'
+              ? `adminProjectId=${data.debug?.adminProjectId ?? 'n/a'} clientProjectId=${data.debug?.clientProjectId ?? 'n/a'}`
+              : null;
+          setOwnerCheckDetail(configDebug);
         }
       } catch {
         if (!cancelled) {
           setOwnerConfigured(false);
           setOwnerCheckReason('server-error');
+          setOwnerCheckDetail(null);
         }
       }
     };
@@ -342,14 +374,29 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
         allowed?: boolean;
         ownerConfigured?: boolean;
         reason?: string;
+        debug?: {
+          errorCode?: string | null;
+          errorMessage?: string | null;
+          adminProjectId?: string | null;
+          clientProjectId?: string | null;
+        };
       };
 
       setOwnerConfigured(Boolean(data.ownerConfigured));
       setOwnerAllowed(Boolean(data.allowed));
       setOwnerCheckReason(data.reason ?? null);
+      const verifyDebug = [data.debug?.errorCode, data.debug?.errorMessage]
+        .filter(Boolean)
+        .join(' | ');
+      const configDebug =
+        data.reason === 'firebase-project-mismatch'
+          ? `adminProjectId=${data.debug?.adminProjectId ?? 'n/a'} clientProjectId=${data.debug?.clientProjectId ?? 'n/a'}`
+          : null;
+      setOwnerCheckDetail(configDebug ?? (verifyDebug || null));
     } catch {
       setOwnerAllowed(false);
       setOwnerCheckReason('server-error');
+      setOwnerCheckDetail(null);
     }
   };
 
@@ -409,7 +456,7 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
   }
 
   if (!ownerConfigured || !isFirebaseConfigured) {
-    return <PrivateAccessSetupError reason={ownerCheckReason} />;
+    return <PrivateAccessSetupError reason={ownerCheckReason} detail={ownerCheckDetail} />;
   }
 
   if (checking) {
@@ -432,7 +479,7 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
   }
 
   if (!isOwner) {
-    return <AccessDenied onSignOut={handleSignOut} reason={ownerCheckReason} />;
+    return <AccessDenied onSignOut={handleSignOut} reason={ownerCheckReason} detail={ownerCheckDetail} />;
   }
 
   return <>{children}</>;

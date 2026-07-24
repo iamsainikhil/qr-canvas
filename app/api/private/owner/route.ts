@@ -40,15 +40,50 @@ const getServerAuthConfig = () => {
   };
 };
 
+const maskEmail = (email: string) => {
+  const [local = '', domain = ''] = email.split('@');
+  if (!local || !domain) return null;
+
+  const localMasked = local.length <= 2
+    ? `${local[0] ?? '*'}*`
+    : `${local.slice(0, 2)}***`;
+
+  const domainParts = domain.split('.');
+  const domainName = domainParts[0] ?? '';
+  const tld = domainParts.slice(1).join('.');
+  const domainMasked = domainName
+    ? `${domainName.slice(0, 2)}***${tld ? `.${tld}` : ''}`
+    : domain;
+
+  return `${localMasked}@${domainMasked}`;
+};
+
 const classifyVerifyError = (error: unknown) => {
+  const rawCode =
+    typeof error === 'object' && error !== null && 'code' in error
+      ? String((error as { code?: unknown }).code ?? '')
+      : '';
+  const code = rawCode.toLowerCase();
   const message = error instanceof Error ? error.message.toLowerCase() : '';
 
+  if (code.includes('id-token-expired')) {
+    return { reason: 'token-expired', code, message };
+  }
+
+  if (code.includes('id-token-revoked')) {
+    return { reason: 'token-revoked', code, message };
+  }
+
+  if (code.includes('invalid-id-token')) {
+    return { reason: 'invalid-id-token', code, message };
+  }
+
   if (message.includes('missing firebase admin environment variables')) {
-    return 'missing-admin-env';
+    return { reason: 'missing-admin-env', code, message };
   }
 
   if (message.includes('private key') || message.includes('pem')) {
-    return 'admin-credential-error';
+    return { reason: 'admin-credential-error', code, message };
   }
 
   if (
@@ -56,10 +91,10 @@ const classifyVerifyError = (error: unknown) => {
     message.includes('incorrect "iss"') ||
     message.includes('project')
   ) {
-    return 'token-project-mismatch';
+    return { reason: 'token-project-mismatch', code, message };
   }
 
-  return 'invalid-token-or-server-error';
+  return { reason: 'invalid-token-or-server-error', code, message };
 };
 
 export async function GET() {
@@ -192,6 +227,10 @@ export async function POST(request: NextRequest) {
           allowed: false,
           ownerConfigured: true,
           reason: 'owner-mismatch',
+          debug: {
+            signedInEmail: maskEmail(email),
+            expectedOwnerEmail: maskEmail(ownerEmail),
+          },
         },
         { status: 403 },
       );
@@ -205,14 +244,18 @@ export async function POST(request: NextRequest) {
       { status: 200 },
     );
   } catch (error) {
-    const reason = classifyVerifyError(error);
-    const status = reason === 'invalid-token-or-server-error' ? 401 : 503;
+    const verifyError = classifyVerifyError(error);
+    const status = verifyError.reason === 'invalid-token-or-server-error' ? 401 : 503;
 
     return NextResponse.json(
       {
         allowed: false,
-        ownerConfigured: false,
-        reason,
+        ownerConfigured: true,
+        reason: verifyError.reason,
+        debug: {
+          errorCode: verifyError.code || null,
+          errorMessage: verifyError.message ? verifyError.message.slice(0, 220) : null,
+        },
       },
       { status },
     );
