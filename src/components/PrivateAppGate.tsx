@@ -3,8 +3,10 @@ import {
   User,
   onAuthStateChanged,
   signInWithPopup,
+  signInWithRedirect,
   signOut,
 } from 'firebase/auth';
+import { FirebaseError } from 'firebase/app';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Icon } from '@iconify/react';
 
@@ -22,6 +24,12 @@ import { useToast } from '@/hooks/use-toast';
 
 const PRIVATE_MODE = process.env.NEXT_PUBLIC_PRIVATE_MODE === 'true';
 const GITHUB_REPO = 'https://github.com/iamsainikhil/qr-canvas';
+const POPUP_FALLBACK_ERROR_CODES = new Set([
+  'auth/popup-blocked',
+  'auth/popup-closed-by-user',
+  'auth/cancelled-popup-request',
+  'auth/operation-not-supported-in-this-environment',
+]);
 
 function GateHeader() {
   const { theme, toggleTheme } = useTheme();
@@ -342,6 +350,27 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
     try {
       await signInWithPopup(firebaseAuth, googleProvider);
     } catch (error) {
+      if (error instanceof FirebaseError) {
+        if (POPUP_FALLBACK_ERROR_CODES.has(error.code)) {
+          toast({
+            title: 'Opening secure sign-in',
+            description: 'Popup is blocked in this environment, continuing with redirect sign-in.',
+          });
+          await signInWithRedirect(firebaseAuth, googleProvider);
+          return;
+        }
+
+        if (error.code === 'auth/unauthorized-domain') {
+          const currentHost = typeof window !== 'undefined' ? window.location.host : 'this domain';
+          toast({
+            title: 'Domain not authorized in Firebase',
+            description: `Add ${currentHost} to Firebase Auth > Settings > Authorized domains.`,
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+
       const description = error instanceof Error ? error.message : 'Google sign-in failed';
       toast({
         title: 'Sign-in failed',
