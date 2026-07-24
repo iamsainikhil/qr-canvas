@@ -84,6 +84,8 @@ export async function GET(
 
     const userAgent = request.headers.get('user-agent') || '';
     if (isBot(userAgent)) {
+      // Skip scan tracking for bots – they don't represent real user engagement
+      // and would inflate scan counts with automated crawl traffic.
       return redirectWithNoStore(routeData.targetValue);
     }
 
