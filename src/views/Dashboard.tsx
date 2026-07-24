@@ -7,6 +7,17 @@ import { useTheme } from '@/hooks/use-theme';
 import { formatDistanceToNow } from 'date-fns';
 import QRCodeStyling, { type CornerDotType, type CornerSquareType, type DotType } from 'qr-code-styling';
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -34,6 +45,43 @@ import {
   subscribeToOwnerQrCodes,
 } from '@/lib/firestoreQrCodes';
 import { getCurrentOwnerUid } from '@/lib/authOwner';
+
+type DestructiveConfirmDialogProps = {
+  trigger: React.ReactElement;
+  title: string;
+  description: React.ReactNode;
+  actionLabel: string;
+  onConfirm: () => void | Promise<void>;
+};
+
+function DestructiveConfirmDialog({ trigger, title, description, actionLabel, onConfirm }: DestructiveConfirmDialogProps) {
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
+      <AlertDialogContent className="max-w-[44rem] rounded-[28px] border-border/70 bg-background px-6 py-7 text-center text-foreground shadow-2xl sm:px-8 sm:py-8">
+        <AlertDialogHeader className="items-center space-y-5 sm:text-center">
+          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-destructive/10 text-destructive">
+            <Icon icon="lucide:trash-2" className="h-10 w-10" />
+          </div>
+          <AlertDialogTitle className="text-2xl font-semibold tracking-tight text-foreground">
+            {title}
+          </AlertDialogTitle>
+          <AlertDialogDescription className="max-w-2xl text-base leading-7 text-muted-foreground">
+            {description}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="mt-2 gap-3 border-t border-border pt-5 sm:justify-center sm:space-x-0">
+          <AlertDialogCancel className="mt-0 h-12 rounded-full border-border/70 px-8 text-base font-medium text-foreground hover:bg-secondary hover:text-secondary-foreground">
+            Cancel
+          </AlertDialogCancel>
+          <AlertDialogAction variant="destructive" className="h-12 rounded-full px-8 text-base font-medium" onClick={onConfirm}>
+            {actionLabel}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
 
 const canOpenInBrowser = (item: SavedQRCode) => {
   return item.type === 'url' || item.type === 'video' || item.type === 'app' || item.type === 'image' || item.type === 'pdf' || item.type === 'mp3';
@@ -588,12 +636,12 @@ export default function Dashboard() {
     }
   };
 
-  const copyValue = async (value: string) => {
+  const copyValue = async (value: string, description = 'QR content copied to clipboard.') => {
     try {
       await navigator.clipboard.writeText(value);
       toast({
         title: 'Copied',
-        description: 'QR content copied to clipboard.',
+        description,
       });
     } catch {
       toast({
@@ -986,9 +1034,17 @@ export default function Dashboard() {
                 Back to canvas
               </Link>
             </Button>
-            <Button variant="destructive" onClick={clearAll} disabled={savedQRCodes.length === 0} className="rounded-full">
-              Clear all
-            </Button>
+            <DestructiveConfirmDialog
+              trigger={
+                <Button variant="destructive" disabled={savedQRCodes.length === 0} className="rounded-full">
+                  Clear all
+                </Button>
+              }
+              title="Delete all saved QR codes?"
+              description="This will permanently delete every saved QR code in your dashboard. Their short links will stop working immediately."
+              actionLabel="Yes, delete all"
+              onConfirm={clearAll}
+            />
           </div>
         </header>
 
@@ -1117,7 +1173,7 @@ export default function Dashboard() {
                           variant="outline"
                           className="rounded-full"
                           disabled={!item.trackingUrl}
-                          onClick={() => item.trackingUrl && copyValue(item.trackingUrl)}
+                          onClick={() => item.trackingUrl && copyValue(item.trackingUrl, 'Short link copied to clipboard.')}
                         >
                           <Icon icon="lucide:link-2" className="h-4 w-4" />
                           Copy short link
@@ -1166,7 +1222,7 @@ export default function Dashboard() {
                             </div>
                             <div className="flex flex-col gap-2">
                               <div className="grid grid-cols-2 gap-2">
-                                <Button variant="outline" className="rounded-full" disabled={!item.trackingUrl} onClick={() => item.trackingUrl && copyValue(item.trackingUrl)}>
+                                <Button variant="outline" className="rounded-full" disabled={!item.trackingUrl} onClick={() => item.trackingUrl && copyValue(item.trackingUrl, 'Short link copied to clipboard.')}>
                                   <Icon icon="lucide:link-2" className="h-4 w-4" />
                                   {item.trackingUrl ? 'Copy short link' : 'Copy destination'}
                                 </Button>
@@ -1200,10 +1256,18 @@ export default function Dashboard() {
                       </div>
 
                       {/* Destructive */}
-                      <Button variant="destructive" className="rounded-full" onClick={() => deleteItem(item)}>
-                        <Icon icon="lucide:trash-2" className="h-4 w-4" />
-                        Remove
-                      </Button>
+                      <DestructiveConfirmDialog
+                        trigger={
+                          <Button variant="destructive" className="rounded-full">
+                            <Icon icon="lucide:trash-2" className="h-4 w-4" />
+                            Remove
+                          </Button>
+                        }
+                        title={`Remove ${item.name}?`}
+                        description="This will permanently remove the saved QR code from your dashboard. Its short link will stop working immediately."
+                        actionLabel="Yes, remove"
+                        onConfirm={() => deleteItem(item)}
+                      />
                     </div>
                   </CardContent>
                 </Card>
