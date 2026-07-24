@@ -9,16 +9,17 @@ import pdfIcon from '@/assets/qr-type-pdf.webp';
 import mp3Icon from '@/assets/qr-type-mp3.webp';
 import appIcon from '@/assets/qr-type-app.webp';
 import videoIcon from '@/assets/qr-type-video.webp';
+import type { StaticImageData } from 'next/image';
 
 export type QRType = 'url' | 'video' | 'wifi' | 'app' | 'text' | 'image' | 'email' | 'sms' | 'pdf' | 'mp3';
 
 interface QRTypeOption {
   id: QRType;
   label: string;
-  image: string;
+  image: string | StaticImageData;
 }
 
-const qrTypes: QRTypeOption[] = [
+export const qrTypes: QRTypeOption[] = [
   { id: 'url', label: 'URL', image: urlIcon },
   { id: 'video', label: 'Video', image: videoIcon },
   { id: 'wifi', label: 'Wi-Fi', image: wifiIcon },
@@ -37,6 +38,8 @@ interface QRTypeSelectorProps {
 }
 
 export function QRTypeSelector({ selectedType, onTypeChange }: QRTypeSelectorProps) {
+  const getImageSrc = (image: string | StaticImageData) => (typeof image === 'string' ? image : image.src);
+
   return (
     <div>
       <h2 className="font-heading text-[20px] font-bold tracking-tight text-foreground leading-[120%] mb-4">Select QR type</h2>
@@ -54,7 +57,7 @@ export function QRTypeSelector({ selectedType, onTypeChange }: QRTypeSelectorPro
             style={{ height: 80 }}
           >
             <img 
-              src={type.image} 
+              src={getImageSrc(type.image)} 
               alt={type.label} 
               className="rounded-xl object-cover"
               width={90}

@@ -1,19 +1,6 @@
 {
-  "framework": null,
+  "framework": "nextjs",
   "installCommand": "npm install",
   "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
-  "routes": [
-    {
-      "src": "^/r/([^/]+)$",
-      "dest": "/api/r/$1"
-    },
-    {
-      "handle": "filesystem"
-    },
-    {
-      "src": "^/(.*)$",
-      "dest": "/index.html"
-    }
-  ]
+  "devCommand": "npm run dev"
 }

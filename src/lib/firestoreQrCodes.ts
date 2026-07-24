@@ -53,7 +53,7 @@ export interface SaveQrToFirestoreInput {
 
 const requireFirestore = () => {
   if (!firestore) {
-    throw new Error('Firebase is not configured. Please set VITE_FIREBASE_* env vars and restart.');
+    throw new Error('Firebase is not configured. Please set NEXT_PUBLIC_FIREBASE_* env vars and restart.');
   }
 
   return firestore;

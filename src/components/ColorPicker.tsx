@@ -1,6 +1,6 @@
-import { useState, forwardRef, useRef, useEffect } from 'react';
-import { cn } from '@/lib/utils';
-import { Check } from 'lucide-react';
+import { useState, forwardRef } from 'react';
+import { cn, isValidHex, isLightColor, normalizeHex } from '@/lib/utils';
+import { Icon } from '@iconify/react';
 import {
   Popover,
   PopoverContent,
@@ -18,8 +18,7 @@ interface ColorPickerProps {
   onBgGradientClear?: () => void;
 }
 
-// 10 curated swatches for QR Code
-const fgSwatches = [
+export const fgSwatches = [
   '#1a1a1a', // Near black
   '#3d3225', // Brown
   '#1e293b', // Slate dark
@@ -32,8 +31,7 @@ const fgSwatches = [
   '#ffffff', // White
 ];
 
-// 10 curated swatches for Background - vibrant pastels
-const bgSwatches = [
+export const bgSwatches = [
   '#ffffff', // White
   '#fef3c7', // Warm yellow
   '#d1fae5', // Mint green
@@ -45,23 +43,6 @@ const bgSwatches = [
   '#1e293b', // Slate dark
   '#000000', // Black
 ];
-
-const isLightColor = (color: string) => {
-  const hex = color.replace('#', '');
-  if (hex.length !== 6) return true;
-  const r = parseInt(hex.substr(0, 2), 16);
-  const g = parseInt(hex.substr(2, 2), 16);
-  const b = parseInt(hex.substr(4, 2), 16);
-  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-  return brightness > 128;
-};
-
-const isValidHex = (hex: string) => /^#[0-9A-Fa-f]{6}$/.test(hex);
-
-// Swatch size (36px) + gap (4px) - reduced for better fit
-const SWATCH_SIZE = 36;
-const GAP_SIZE = 4;
-const PICKER_BUTTON_SIZE = 36;
 
 // Color Swatch Button
 const ColorSwatch = ({ 
@@ -91,7 +72,7 @@ const ColorSwatch = ({
       style={{ backgroundColor: color }}
     >
       {isSelected && (
-        <Check className={cn(
+        <Icon icon="mdi-light:check" className={cn(
           "w-3 h-3",
           isLightColor(color) ? "text-foreground" : "text-white"
         )} />
@@ -108,11 +89,16 @@ const ColorPickerTriggerButton = forwardRef<
   <button
     ref={ref}
     {...props}
-    className="w-9 h-9 rounded-full transition-all duration-200 flex items-center justify-center flex-shrink-0 border border-border overflow-hidden"
-    style={{
-      background: 'conic-gradient(from 0deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)',
-    }}
-  />
+    className="w-9 h-9 rounded-full transition-all duration-200 flex items-center justify-center flex-shrink-0 border border-border p-0.5"
+  >
+    <div
+      className={cn(
+        'w-full h-full rounded-full',
+        currentColor === '#ffffff' && 'border border-border',
+      )}
+      style={{ backgroundColor: currentColor }}
+    />
+  </button>
 ));
 
 ColorPickerTriggerButton.displayName = 'ColorPickerTriggerButton';
@@ -139,6 +125,8 @@ function ColorPickerPopover({
   swatches,
   isCustomSelected = false,
 }: ColorPickerPopoverProps) {
+  const defaultTab = isCustomSelected ? 'custom' : 'swatches';
+
   return (
     <Popover open={open} onOpenChange={onOpenChange} modal={true}>
       <PopoverTrigger asChild>
@@ -153,7 +141,7 @@ function ColorPickerPopover({
               )}
               style={{ backgroundColor: currentColor }}
             >
-              <Check className={cn(
+              <Icon icon="mdi-light:check" className={cn(
                 "w-3 h-3",
                 isLightColor(currentColor) ? "text-foreground" : "text-white"
               )} />
@@ -167,7 +155,7 @@ function ColorPickerPopover({
         className="w-auto p-4 bg-card rounded-2xl" 
         align="end"
       >
-        <Tabs defaultValue="swatches" className="w-[220px] min-h-[240px]">
+        <Tabs defaultValue={defaultTab} className="w-[220px] min-h-[240px]">
           <TabsList className="grid w-full grid-cols-2 h-10 p-1 bg-muted rounded-full">
             <TabsTrigger 
               value="swatches" 
@@ -240,6 +228,57 @@ function ColorPickerPopover({
   );
 }
 
+interface InlineColorPickerFieldProps {
+  label?: string;
+  color: string;
+  inputValue: string;
+  onColorChange: (color: string) => void;
+  onInputChange: (value: string) => void;
+  swatches: string[];
+  showLabel?: boolean;
+  inputPlaceholder?: string;
+}
+
+export function InlineColorPickerField({
+  label,
+  color,
+  inputValue,
+  onColorChange,
+  onInputChange,
+  swatches,
+  showLabel = true,
+  inputPlaceholder,
+}: InlineColorPickerFieldProps) {
+  const [open, setOpen] = useState(false);
+  const visibleSwatches = swatches.slice(0, 10);
+  const isCustomSelected = !visibleSwatches.includes(color);
+
+  return (
+    <div className="flex items-center gap-3">
+      {showLabel && (
+        <span className="text-xs text-muted-foreground w-20 flex-shrink-0">{label}</span>
+      )}
+      <ColorPickerPopover
+        currentColor={color}
+        onColorChange={onColorChange}
+        hexInput={inputValue}
+        onHexInputChange={onInputChange}
+        open={open}
+        onOpenChange={setOpen}
+        swatches={swatches}
+        isCustomSelected={isCustomSelected}
+      />
+      <Input
+        value={inputValue}
+        onChange={(e) => onInputChange(e.target.value.toUpperCase())}
+        placeholder={inputPlaceholder || '#000000'}
+        className="text-xs h-10 font-mono uppercase flex-1 rounded-xl"
+        maxLength={7}
+      />
+    </div>
+  );
+}
+
 export function ColorPicker({
   fgColor,
   bgColor,
@@ -251,82 +290,40 @@ export function ColorPicker({
   const [bgHexInput, setBgHexInput] = useState(bgColor);
   const [fgOpen, setFgOpen] = useState(false);
   const [bgOpen, setBgOpen] = useState(false);
-  const [visibleSwatches, setVisibleSwatches] = useState(10);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Calculate how many swatches can fit based on container width
-  useEffect(() => {
-    let rafId: number;
-    
-    const calculateVisibleSwatches = () => {
-      // Use requestAnimationFrame to batch layout reads and avoid forced reflow
-      rafId = requestAnimationFrame(() => {
-        if (!containerRef.current) return;
-        const containerWidth = containerRef.current.offsetWidth;
-        // Reserve space for the picker button
-        const availableWidth = containerWidth - PICKER_BUTTON_SIZE - GAP_SIZE;
-        const maxSwatches = Math.floor(availableWidth / (SWATCH_SIZE + GAP_SIZE));
-        // Clamp between 3 and 10 swatches
-        setVisibleSwatches(Math.max(3, Math.min(10, maxSwatches)));
-      });
-    };
-
-    calculateVisibleSwatches();
-
-    const resizeObserver = new ResizeObserver(() => {
-      // Debounce resize calculations
-      cancelAnimationFrame(rafId);
-      calculateVisibleSwatches();
-    });
-    
-    if (containerRef.current) {
-      resizeObserver.observe(containerRef.current);
-    }
-
-    return () => {
-      cancelAnimationFrame(rafId);
-      resizeObserver.disconnect();
-    };
-  }, []);
 
   const handleFgHexChange = (value: string) => {
-    const formatted = value.startsWith('#') ? value : `#${value}`;
-    setFgHexInput(formatted.toUpperCase());
+    const formatted = normalizeHex(value);
+    setFgHexInput(formatted);
     if (isValidHex(formatted)) {
-      onFgColorChange(formatted.toUpperCase());
+      onFgColorChange(formatted);
     }
   };
 
   const handleBgHexChange = (value: string) => {
-    const formatted = value.startsWith('#') ? value : `#${value}`;
-    setBgHexInput(formatted.toUpperCase());
+    const formatted = normalizeHex(value);
+    setBgHexInput(formatted);
     if (isValidHex(formatted)) {
-      onBgColorChange(formatted.toUpperCase());
       onBgGradientClear?.();
+      onBgColorChange(formatted);
     }
   };
 
   const handleBgSwatchClick = (color: string) => {
+    onBgGradientClear?.();
     onBgColorChange(color);
     setBgHexInput(color);
-    onBgGradientClear?.();
   };
 
-  // Get visible swatches based on calculated amount
-  const visibleFgSwatches = fgSwatches.slice(0, visibleSwatches);
-  const visibleBgSwatches = bgSwatches.slice(0, visibleSwatches);
-
-  // Check if current color is a custom color (not in visible swatches)
-  const isFgCustom = !visibleFgSwatches.includes(fgColor);
-  const isBgCustom = !visibleBgSwatches.includes(bgColor);
+  const isFgCustom = !fgSwatches.includes(fgColor);
+  const isBgCustom = !bgSwatches.includes(bgColor);
 
   return (
-    <div className="space-y-4 overflow-hidden w-full max-w-full" ref={containerRef}>
+    <div className="space-y-4 overflow-hidden w-full max-w-full">
       {/* Foreground Color */}
       <div className="space-y-2 w-full">
         <p className="text-xs text-muted-foreground">QR Code</p>
-        <div className="flex items-center gap-1 flex-wrap sm:flex-nowrap sm:justify-between w-full">
-          {visibleFgSwatches.map((color) => (
+        <div className="flex items-center gap-1 flex-wrap w-full">
+          {fgSwatches.map((color) => (
             <ColorSwatch
               key={color}
               color={color}
@@ -357,8 +354,8 @@ export function ColorPicker({
       {/* Background Color */}
       <div className="space-y-2 w-full">
         <p className="text-xs text-muted-foreground">Background</p>
-        <div className="flex items-center gap-1 flex-wrap sm:flex-nowrap sm:justify-between w-full">
-          {visibleBgSwatches.map((color) => (
+        <div className="flex items-center gap-1 flex-wrap w-full">
+          {bgSwatches.map((color) => (
             <ColorSwatch
               key={color}
               color={color}
@@ -370,9 +367,9 @@ export function ColorPicker({
           <ColorPickerPopover
             currentColor={bgColor}
             onColorChange={(color) => {
+              onBgGradientClear?.();
               onBgColorChange(color);
               setBgHexInput(color);
-              onBgGradientClear?.();
             }}
             hexInput={bgHexInput}
             onHexInputChange={handleBgHexChange}

@@ -3,20 +3,14 @@ import { useEffect, useState } from 'react';
 type Theme = 'light' | 'dark';
 
 export function useTheme() {
-  const [theme, setTheme] = useState<Theme>(() => {
-    // Check if running on client
-    if (typeof window === 'undefined') return 'light';
+  // Keep server and initial client render deterministic to avoid hydration mismatches.
+  const [theme, setTheme] = useState<Theme>('light');
 
-    // Check localStorage first
+  useEffect(() => {
     const stored = localStorage.getItem('theme') as Theme | null;
-    if (stored) return stored;
-
-    // Check system preference
-    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      return 'dark';
-    }
-    return 'light';
-  });
+    const preferred = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    setTheme(stored ?? preferred);
+  }, []);
 
   // Apply theme on mount and when it changes
   useEffect(() => {

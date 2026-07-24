@@ -1,5 +1,4 @@
 import { PropsWithChildren, useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
 import {
   User,
   onAuthStateChanged,
@@ -7,7 +6,7 @@ import {
   signOut,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { ExternalLink, Github, Loader2, Lock, LogOut, Moon, QrCode, ShieldCheck, Sparkles, Sun } from 'lucide-react';
+import { Icon } from '@iconify/react';
 
 import {
   firebaseAuth,
@@ -21,16 +20,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useTheme } from '@/hooks/use-theme';
 import { useToast } from '@/hooks/use-toast';
 
-const PRIVATE_MODE = import.meta.env.VITE_PRIVATE_MODE === 'true';
-const OWNER_EMAIL = (import.meta.env.VITE_OWNER_EMAIL ?? '').trim().toLowerCase();
+const PRIVATE_MODE = process.env.NEXT_PUBLIC_PRIVATE_MODE === 'true';
 const GITHUB_REPO = 'https://github.com/iamsainikhil/qr-canvas';
-const PUBLIC_PATH_PREFIXES = ['/r/'];
-const PUBLIC_PATHS = new Set(['/scan-error']);
-
-const isOwnerUser = (user: User | null) => {
-  if (!OWNER_EMAIL) return false;
-  return (user?.email ?? '').trim().toLowerCase() === OWNER_EMAIL;
-};
 
 function GateHeader() {
   const { theme, toggleTheme } = useTheme();
@@ -45,16 +36,16 @@ function GateHeader() {
       </a>
       <div className="flex items-center gap-2">
         <Button
-          variant="outline"
-          size="sm"
+          variant="ghost"
+          size="icon"
           onClick={toggleTheme}
           className="rounded-full"
           title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
         >
           {theme === 'light' ? (
-            <Moon className="h-4 w-4" />
+            <Icon icon="line-md:sunny-outline-to-moon-loop-transition" className="!size-6" />
           ) : (
-            <Sun className="h-4 w-4" />
+            <Icon icon="line-md:moon-to-sunny-outline-loop-transition" className="!size-6" />
           )}
         </Button>
         <a
@@ -63,9 +54,7 @@ function GateHeader() {
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
         >
-          <Github className="h-4 w-4" />
-          <span className="hidden sm:inline">Self-host this app</span>
-          <ExternalLink className="h-3 w-3" />
+          <Icon icon="line-md:github" height="2em" />
         </a>
       </div>
     </div>
@@ -102,7 +91,7 @@ function PrivateAccessSetupError() {
           <CardHeader className="text-center">
             <CardTitle className="font-heading text-2xl">Private mode needs setup</CardTitle>
             <CardDescription>
-              Set VITE_OWNER_EMAIL and Firebase client env vars to lock this deployment.
+              Set OWNER_EMAIL and Firebase client env vars to lock this deployment.
             </CardDescription>
           </CardHeader>
           {missing ? (
@@ -145,7 +134,7 @@ function AccessDenied({ onSignOut }: { onSignOut: () => Promise<void> }) {
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-3">
             <Button variant="outline" className="rounded-full" onClick={onSignOut}>
-              <LogOut className="h-4 w-4" />
+              <Icon icon="line-md:logout" className="h-4 w-4" />
               Sign out
             </Button>
             <p className="text-center text-xs text-muted-foreground">
@@ -189,7 +178,7 @@ function PrivateSignIn({
         <Card className="w-full max-w-xl border-border/70 bg-card/95 backdrop-blur">
           <CardHeader className="items-center text-center">
             <div className="mb-2 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary">
-              <Lock className="h-5 w-5 text-foreground" />
+              <Icon icon="solar:lock-outline" className="h-5 w-5 text-foreground" />
             </div>
             <CardTitle className="font-heading text-3xl">Private QR Console</CardTitle>
             <CardDescription>
@@ -200,32 +189,18 @@ function PrivateSignIn({
             <Button onClick={onSignIn} className="h-11 w-full max-w-xs rounded-full" disabled={signingIn}>
               {signingIn ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Icon icon="bx:loader-circle" className="h-4 w-4 animate-spin" />
                   Signing in
                 </>
               ) : (
                 <>
-                  <ShieldCheck className="h-4 w-4" />
+                  <Icon icon="solar:shield-check-outline" className="h-4 w-4" />
                   Continue with Google
                 </>
               )}
             </Button>
             <p className="text-center text-xs text-muted-foreground">
               Access is restricted to the authorized owner account.
-            </p>
-          </CardContent>
-          <CardContent className="flex justify-center border-t border-border/30 pt-4">
-            <p className="text-center text-xs text-muted-foreground">
-              Want to run your own instance?{' '}
-              <a
-                href={GITHUB_REPO}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline underline-offset-2 transition-colors hover:text-foreground"
-              >
-                Self-host on GitHub
-              </a>
-              .
             </p>
           </CardContent>
         </Card>
@@ -236,18 +211,48 @@ function PrivateSignIn({
 }
 
 export function PrivateAppGate({ children }: PropsWithChildren) {
-  const location = useLocation();
   const [user, setUser] = useState<User | null>(null);
   const [checking, setChecking] = useState(PRIVATE_MODE);
   const [signingIn, setSigningIn] = useState(false);
+  const [ownerConfigured, setOwnerConfigured] = useState(true);
+  const [ownerAllowed, setOwnerAllowed] = useState(false);
   const { toast } = useToast();
 
-  const isOwner = useMemo(() => isOwnerUser(user), [user]);
+  const isOwner = useMemo(() => ownerAllowed, [ownerAllowed]);
+
+  useEffect(() => {
+    if (!PRIVATE_MODE) return;
+
+    let cancelled = false;
+
+    const loadOwnerConfig = async () => {
+      try {
+        const response = await fetch('/api/private/owner', {
+          method: 'GET',
+          cache: 'no-store',
+        });
+        const data = (await response.json()) as { ownerConfigured?: boolean };
+        if (!cancelled) {
+          setOwnerConfigured(Boolean(data.ownerConfigured));
+        }
+      } catch {
+        if (!cancelled) {
+          setOwnerConfigured(false);
+        }
+      }
+    };
+
+    void loadOwnerConfig();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!user || !firestore) return;
 
-    if (!isOwnerUser(user)) return;
+    if (!isOwner) return;
 
     let cancelled = false;
 
@@ -281,13 +286,42 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
     return () => {
       cancelled = true;
     };
-  }, [user, toast]);
+  }, [isOwner, user, toast]);
+
+  const verifyOwnerAccess = async (nextUser: User) => {
+    try {
+      const token = await nextUser.getIdToken();
+      const response = await fetch('/api/private/owner', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = (await response.json()) as {
+        allowed?: boolean;
+        ownerConfigured?: boolean;
+      };
+
+      setOwnerConfigured(Boolean(data.ownerConfigured));
+      setOwnerAllowed(Boolean(data.allowed));
+    } catch {
+      setOwnerAllowed(false);
+    }
+  };
 
   useEffect(() => {
     if (!PRIVATE_MODE || !firebaseAuth) return;
 
-    const unsubscribe = onAuthStateChanged(firebaseAuth, (nextUser) => {
+    const unsubscribe = onAuthStateChanged(firebaseAuth, async (nextUser) => {
       setUser(nextUser);
+      if (!nextUser) {
+        setOwnerAllowed(false);
+        setChecking(false);
+        return;
+      }
+
+      setChecking(true);
+      await verifyOwnerAccess(nextUser);
       setChecking(false);
     });
 
@@ -306,16 +340,7 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
 
     setSigningIn(true);
     try {
-      const result = await signInWithPopup(firebaseAuth, googleProvider);
-      const email = (result.user.email ?? '').trim().toLowerCase();
-      if (email !== OWNER_EMAIL) {
-        await signOut(firebaseAuth);
-        toast({
-          title: 'Unauthorized account',
-          description: 'Use the configured owner Google account.',
-          variant: 'destructive',
-        });
-      }
+      await signInWithPopup(firebaseAuth, googleProvider);
     } catch (error) {
       const description = error instanceof Error ? error.message : 'Google sign-in failed';
       toast({
@@ -339,14 +364,7 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
     return <>{children}</>;
   }
 
-  const pathname = location.pathname;
-  const isPublicPath =
-    PUBLIC_PATHS.has(pathname) || PUBLIC_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
-  if (isPublicPath) {
-    return <>{children}</>;
-  }
-
-  if (!OWNER_EMAIL || !isFirebaseConfigured) {
+  if (!ownerConfigured || !isFirebaseConfigured) {
     return <PrivateAccessSetupError />;
   }
 
@@ -356,7 +374,7 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
         <GateHeader />
         <main className="flex flex-1 items-center justify-center">
           <div className="flex flex-col items-center gap-3 text-center text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Icon icon="bx:loader-circle" className="h-4 w-4 animate-spin" />
             Checking private access
           </div>
         </main>

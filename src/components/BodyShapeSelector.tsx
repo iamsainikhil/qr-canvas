@@ -28,18 +28,21 @@ export function BodyShapeSelector({ selectedShape, onShapeChange }: BodyShapeSel
           key={shape.id}
           onClick={() => onShapeChange(shape.id)}
           className={cn(
-            "aspect-square p-2.5 rounded-2xl transition-all duration-200 flex items-center justify-center border",
+            "flex flex-col items-center gap-1.5 p-2 rounded-2xl transition-all duration-200 border",
             selectedShape === shape.id
               ? "gradient-border-selected"
               : "border-border bg-card hover:bg-muted/50"
           )}
           title={shape.label}
         >
-          <img 
-            src={shape.icon} 
+          <img
+            src={shape.icon}
             alt={shape.label}
-            className="w-full h-full object-contain"
+            className="w-8 h-8 object-contain"
           />
+          <span className="text-[10px] font-medium text-foreground leading-none w-full text-center truncate px-0.5">
+            {shape.label}
+          </span>
         </button>
       ))}
     </div>

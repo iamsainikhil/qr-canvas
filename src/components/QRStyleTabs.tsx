@@ -1,22 +1,22 @@
-import { useEffect, useState } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Upload, X, Check, ChevronsUpDown, Loader2 } from 'lucide-react';
+import { Icon } from '@iconify/react';
 import { cn } from '@/lib/utils';
 import { QRType } from './QRTypeSelector';
-import { ThemePresets, defaultThemePresets, ThemePreset } from './ThemePresets';
+import { ThemePresets, ThemePreset } from './ThemePresets';
 import { BodyShapeSelector, BodyShape } from './BodyShapeSelector';
 
-import { ColorPicker } from './ColorPicker';
+import { ColorPicker, InlineColorPickerField, bgSwatches } from './ColorPicker';
 import { Slider } from '@/components/ui/slider';
 import { LogoStyleOptions } from './logoStyle';
 import { ScanLabelStyleOptions } from './scanLabelStyle';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { defaultFontFamilies, ensureGoogleFontLoaded, getGoogleFontFamilies } from '@/lib/fontRegistry';
-import type { LogoDevLookupMode, LogoSource } from '@/pages/Index';
+import { useGoogleFont } from '@/hooks/use-google-font';
+import { defaultFontFamilies, getGoogleFontFamilies } from '@/lib/fontRegistry';
+import type { LogoDevLookupMode, LogoSource } from '@/views/Index';
 import { useToast } from '@/hooks/use-toast';
 
 export type FrameStyle = 'square' | 'rounded-sm' | 'rounded-md' | 'rounded-lg' | 'rounded-left' | 'rounded-right' | 'pill-h' | 'pill-v' | 'circle';
@@ -74,6 +74,8 @@ interface QRStyleTabsProps {
   autoFaviconUrl?: string | null;
   logoDevUrl?: string | null;
   isLogoDevConfigured: boolean;
+  showContentSection?: boolean;
+  showStyleSection?: boolean;
 }
 
 const logoSourceOptions: { id: LogoSource; label: string; enabled: boolean }[] = [
@@ -89,18 +91,6 @@ const logoDevModeOptions: { id: LogoDevLookupMode; label: string; placeholder: s
   { id: 'ticker', label: 'Ticker', placeholder: 'AAPL' },
   { id: 'crypto', label: 'Crypto', placeholder: 'BTC' },
   { id: 'isin', label: 'ISIN', placeholder: 'US0378331005' },
-];
-
-const frameStyles: { id: FrameStyle; preview: string }[] = [
-  { id: 'square', preview: 'rounded-none' },
-  { id: 'rounded-sm', preview: 'rounded-sm' },
-  { id: 'rounded-md', preview: 'rounded-md' },
-  { id: 'rounded-lg', preview: 'rounded-lg' },
-  { id: 'rounded-left', preview: 'rounded-l-lg rounded-r-none' },
-  { id: 'rounded-right', preview: 'rounded-r-lg rounded-l-none' },
-  { id: 'pill-h', preview: 'rounded-full' },
-  { id: 'pill-v', preview: 'rounded-full' },
-  { id: 'circle', preview: 'rounded-full' },
 ];
 
 export function QRStyleTabs({
@@ -125,8 +115,6 @@ export function QRStyleTabs({
   onSmsPhoneChange,
   smsMessage,
   onSmsMessageChange,
-  frameStyle,
-  onFrameStyleChange,
   fgColor,
   onFgColorChange,
   bgColor,
@@ -156,14 +144,16 @@ export function QRStyleTabs({
   autoFaviconUrl,
   logoDevUrl,
   isLogoDevConfigured,
+  showContentSection = true,
+  showStyleSection = true,
 }: QRStyleTabsProps) {
   const { toast } = useToast();
   const [selectedTheme, setSelectedTheme] = useState('');
   const [fontPickerOpen, setFontPickerOpen] = useState(false);
   const [availableFonts, setAvailableFonts] = useState<string[]>(defaultFontFamilies);
   const [isFontsLoading, setIsFontsLoading] = useState(false);
-  const [isSelectedFontLoading, setIsSelectedFontLoading] = useState(false);
   const [isDestinationDragActive, setIsDestinationDragActive] = useState(false);
+  const isSelectedFontLoading = useGoogleFont(scanLabelStyle.fontFamily);
 
   const updateLogoStyle = <K extends keyof LogoStyleOptions>(key: K, value: LogoStyleOptions[K]) => {
     onLogoStyleChange({
@@ -195,30 +185,9 @@ export function QRStyleTabs({
     setIsFontsLoading(false);
   };
 
-  const handleFontSelect = async (family: string) => {
-    setIsSelectedFontLoading(true);
+  const handleFontSelect = (family: string) => {
     updateScanLabelStyle('fontFamily', family);
-    await ensureGoogleFontLoaded(family, [400, 500, 600, 700, 800]);
-    setIsSelectedFontLoading(false);
   };
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const preloadSelectedFont = async () => {
-      setIsSelectedFontLoading(true);
-      await ensureGoogleFontLoaded(scanLabelStyle.fontFamily, [400, 500, 600, 700, 800]);
-      if (!cancelled) {
-        setIsSelectedFontLoading(false);
-      }
-    };
-
-    void preloadSelectedFont();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [scanLabelStyle.fontFamily]);
 
   const logoPresets: { id: string; label: string; style: Pick<LogoStyleOptions, 'badgeSize' | 'padding' | 'cornerRadius'> }[] = [
     {
@@ -256,15 +225,19 @@ export function QRStyleTabs({
     updateLogoStyle('backgroundColor', '#FFFFFF');
   };
 
+  const detachThemeSelection = () => {
+    setSelectedTheme('');
+    onBgGradientChange?.(null);
+  };
+
   const handleManualFgColorChange = (color: string) => {
-    clearThemeSelection();
+    detachThemeSelection();
     onFgColorChange(color);
   };
 
   const handleManualBgColorChange = (color: string) => {
-    clearThemeSelection();
+    detachThemeSelection();
     onBgColorChange(color);
-    onBgGradientChange?.(null);
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -279,10 +252,10 @@ export function QRStyleTabs({
     }
   };
 
-  const destinationUploadConfig: Partial<Record<QRType, { accept: string; button: string; maxSizeLabel: string }>> = {
-    image: { accept: 'image/*', button: 'Upload image', maxSizeLabel: 'Max 10 MB' },
-    pdf: { accept: 'application/pdf', button: 'Upload PDF', maxSizeLabel: 'Max 20 MB' },
-    mp3: { accept: 'audio/mpeg,audio/mp3', button: 'Upload MP3', maxSizeLabel: 'Max 25 MB' },
+  const destinationUploadConfig: Partial<Record<QRType, { accept: string; cta: string; maxSizeLabel: string }>> = {
+    image: { accept: 'image/*', cta: 'Upload image', maxSizeLabel: 'Max 10 MB' },
+    pdf: { accept: 'application/pdf', cta: 'Upload PDF', maxSizeLabel: 'Max 20 MB' },
+    mp3: { accept: 'audio/mpeg,audio/mp3', cta: 'Upload MP3', maxSizeLabel: 'Max 25 MB' },
   };
 
   const uploadDestinationFileCandidate = async (file: File) => {
@@ -314,18 +287,18 @@ export function QRStyleTabs({
     e.target.value = '';
   };
 
-  const handleDestinationDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDestinationDragOver = (e: React.DragEvent<HTMLElement>) => {
     if (!onUploadDestinationFile || isDestinationUploading) return;
     e.preventDefault();
     setIsDestinationDragActive(true);
   };
 
-  const handleDestinationDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDestinationDragLeave = (e: React.DragEvent<HTMLElement>) => {
     e.preventDefault();
     setIsDestinationDragActive(false);
   };
 
-  const handleDestinationDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDestinationDrop = async (e: React.DragEvent<HTMLElement>) => {
     if (!onUploadDestinationFile || isDestinationUploading) return;
     e.preventDefault();
     setIsDestinationDragActive(false);
@@ -349,9 +322,9 @@ export function QRStyleTabs({
   // Config for URL-like input types (label, placeholder, hint)
   const urlInputConfigs: Partial<Record<QRType, { label: string; placeholder: string; hint: string }>> = {
     url:   { label: 'Enter your link here', placeholder: 'https://example.com', hint: 'Your QR code will generate automatically' },
-    image: { label: 'Image URL', placeholder: 'https://example.com/image.png', hint: 'Paste a public image URL, or upload a file below to fill this field automatically.' },
-    pdf:   { label: 'PDF URL', placeholder: 'https://example.com/file.pdf', hint: 'Paste a public PDF URL, or upload a file below to fill this field automatically.' },
-    mp3:   { label: 'MP3 URL', placeholder: 'https://example.com/audio.mp3', hint: 'Paste a public MP3 URL, or upload a file below to fill this field automatically.' },
+    image: { label: 'Image URL', placeholder: 'https://example.com/image.png', hint: 'Paste a public image URL, or upload a file above to fill this field automatically.' },
+    pdf:   { label: 'PDF URL', placeholder: 'https://example.com/file.pdf', hint: 'Paste a public PDF URL, or upload a file above to fill this field automatically.' },
+    mp3:   { label: 'MP3 URL', placeholder: 'https://example.com/audio.mp3', hint: 'Paste a public MP3 URL, or upload a file above to fill this field automatically.' },
     app:   { label: 'App Store or Play Store URL', placeholder: 'https://apps.apple.com/... or https://play.google.com/...', hint: 'Link to your app on App Store or Google Play' },
     video: { label: 'YouTube Video URL', placeholder: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', hint: 'Paste your YouTube video link here' },
   };
@@ -372,46 +345,40 @@ export function QRStyleTabs({
             className={inputClassName}
           />
           {uploadConfig && onUploadDestinationFile ? (
-            <div className="space-y-2">
-              <label className="inline-flex w-full">
-                <input
-                  type="file"
-                  accept={uploadConfig.accept}
-                  onChange={handleDestinationFileUpload}
-                  disabled={Boolean(isDestinationUploading)}
-                  className="hidden"
-                />
-                <span
-                  className={cn(
-                    'flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-border bg-background text-sm font-medium',
-                    isDestinationUploading
-                      ? 'cursor-not-allowed opacity-60'
-                      : 'cursor-pointer hover:bg-secondary/50',
-                  )}
-                >
+            <label
+              onDragOver={handleDestinationDragOver}
+              onDragLeave={handleDestinationDragLeave}
+              onDrop={handleDestinationDrop}
+              className={cn(
+                'group block w-full rounded-2xl border border-dashed p-4 text-center transition-colors',
+                isDestinationDragActive
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border bg-background text-muted-foreground hover:bg-secondary/35',
+                isDestinationUploading ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+              )}
+            >
+              <input
+                type="file"
+                accept={uploadConfig.accept}
+                onChange={handleDestinationFileUpload}
+                disabled={Boolean(isDestinationUploading)}
+                className="hidden"
+              />
+              <div className="flex min-h-28 flex-col items-center justify-center gap-3">
+                <span className="inline-flex h-11 w-full max-w-sm items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground shadow-sm transition-colors group-hover:bg-secondary/50">
                   {isDestinationUploading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Icon icon="bx:loader-circle" className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Upload className="h-4 w-4" />
+                    <Icon icon="lucide:upload" className="h-4 w-4" />
                   )}
-                  {isDestinationUploading ? 'Uploading to Firebase...' : uploadConfig.button}
+                  {isDestinationUploading ? 'Uploading to Firebase...' : uploadConfig.cta}
                 </span>
-              </label>
-              <div
-                onDragOver={handleDestinationDragOver}
-                onDragLeave={handleDestinationDragLeave}
-                onDrop={handleDestinationDrop}
-                className={cn(
-                  'flex h-20 w-full items-center justify-center rounded-xl border border-dashed px-3 text-center text-xs transition-colors',
-                  isDestinationDragActive
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'border-border text-muted-foreground',
-                  isDestinationUploading ? 'opacity-60' : null,
-                )}
-              >
-                Drag and drop your file here to upload directly
+                <div className="text-xs text-muted-foreground">
+                  Drag and drop a file here or click to upload
+                </div>
+                <div className="text-[11px] text-muted-foreground/80">{uploadConfig.maxSizeLabel}</div>
               </div>
-            </div>
+            </label>
           ) : null}
           <p className="text-sm text-muted-foreground">{urlConfig.hint}</p>
         </div>
@@ -552,16 +519,28 @@ export function QRStyleTabs({
 
   return (
     <div className="space-y-6">
-      <div className="space-y-3">
-        <h2 className="font-heading text-[20px] font-bold tracking-tight text-foreground leading-[120%]">Content</h2>
-        <div className="rounded-2xl border border-border bg-card p-4">
-          {renderInputFields()}
+      {showContentSection ? (
+        <div className="space-y-3">
+          <h2 className="font-heading text-[20px] font-bold tracking-tight text-foreground leading-[120%]">Content</h2>
+          <div className="rounded-2xl border border-border bg-card p-4">
+            {renderInputFields()}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {/* Style Section */}
+      {showStyleSection ? (
       <div className="space-y-6">
         <h2 className="font-heading text-[20px] font-bold tracking-tight text-foreground leading-[120%]">Style your QR</h2>
+        
+        {/* Body Shape */}
+        <div className="space-y-3">
+          <p className="font-heading text-sm font-bold tracking-tight text-foreground">Pattern</p>
+          <BodyShapeSelector
+            selectedShape={bodyShape || 'square'}
+            onShapeChange={(shape) => onBodyShapeChange?.(shape)}
+          />
+        </div>
         
         {/* Theme Presets */}
         <div className="space-y-3">
@@ -577,15 +556,6 @@ export function QRStyleTabs({
           />
         </div>
 
-        {/* Body Shape */}
-        <div className="space-y-3">
-          <p className="font-heading text-sm font-bold tracking-tight text-foreground">Pattern</p>
-          <BodyShapeSelector
-            selectedShape={bodyShape || 'square'}
-            onShapeChange={(shape) => onBodyShapeChange?.(shape)}
-          />
-        </div>
-
         {/* Color Picker */}
         <div className="space-y-3">
           <p className="font-heading text-sm font-bold tracking-tight text-foreground">Colors</p>
@@ -595,8 +565,7 @@ export function QRStyleTabs({
             onFgColorChange={handleManualFgColorChange}
             onBgColorChange={handleManualBgColorChange}
             onBgGradientClear={() => {
-              clearThemeSelection();
-              onBgGradientChange?.(null);
+              detachThemeSelection();
             }}
           />
         </div>
@@ -647,7 +616,7 @@ export function QRStyleTabs({
                   className="hidden"
                 />
                 <span className="flex items-center justify-center gap-2 h-10 rounded-xl border border-border bg-background hover:bg-secondary/50 cursor-pointer text-sm font-medium">
-                  <Upload className="w-4 h-4" />
+                  <Icon icon="lucide:upload" className="w-4 h-4" />
                   {logo ? 'Replace upload' : 'Upload logo'}
                 </span>
               </label>
@@ -664,7 +633,7 @@ export function QRStyleTabs({
                   }}
                   className="h-10 w-10 rounded-xl"
                 >
-                  <X className="w-4 h-4" />
+                  <Icon icon="lucide:x" className="w-4 h-4" />
                 </Button>
               )}
             </div>
@@ -826,18 +795,14 @@ export function QRStyleTabs({
                     backgroundColor: '#fff',
                   }}
                 />
-                <input
-                  type="color"
-                  value={logoStyle.backgroundColor === 'transparent' ? '#ffffff' : logoStyle.backgroundColor}
-                  onChange={(e) => updateLogoStyle('backgroundColor', e.target.value.toUpperCase())}
-                  className="h-10 w-10 flex-shrink-0 cursor-pointer rounded-xl border border-border bg-transparent p-1"
-                />
-                <Input
-                  value={logoStyle.backgroundColor === 'transparent' ? '' : logoStyle.backgroundColor}
-                  placeholder={logoStyle.backgroundColor === 'transparent' ? 'transparent' : undefined}
-                  onChange={(e) => updateLogoStyle('backgroundColor', e.target.value.toUpperCase())}
-                  className={inputClassName}
-                  maxLength={7}
+                <InlineColorPickerField
+                  color={logoStyle.backgroundColor === 'transparent' ? '#FFFFFF' : logoStyle.backgroundColor}
+                  inputValue={logoStyle.backgroundColor === 'transparent' ? '' : logoStyle.backgroundColor}
+                  inputPlaceholder={logoStyle.backgroundColor === 'transparent' ? 'transparent' : '#000000'}
+                  onColorChange={(color) => updateLogoStyle('backgroundColor', color)}
+                  onInputChange={(value) => updateLogoStyle('backgroundColor', value)}
+                  swatches={bgSwatches}
+                  showLabel={false}
                 />
               </div>
             </div>
@@ -874,7 +839,7 @@ export function QRStyleTabs({
                     >
                       {scanLabelStyle.fontFamily}
                     </span>
-                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                    <Icon icon="lucide:chevrons-up-down" className="ml-2 h-4 w-4 opacity-50" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[320px] p-0" align="start">
@@ -891,7 +856,7 @@ export function QRStyleTabs({
                               void handleFontSelect(family);
                             }}
                           >
-                            <Check
+                            <Icon icon="mdi-light:check"
                               className={cn(
                                 'mr-2 h-4 w-4',
                                 scanLabelStyle.fontFamily === family ? 'opacity-100' : 'opacity-0',
@@ -908,7 +873,7 @@ export function QRStyleTabs({
               <p className="text-xs text-muted-foreground flex items-center gap-2">
                 {isFontsLoading ? (
                   <>
-                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <Icon icon="bx:loader-circle" className="h-3 w-3 animate-spin" />
                     Loading full font catalog...
                   </>
                 ) : (
@@ -918,7 +883,7 @@ export function QRStyleTabs({
               <p className="text-xs text-muted-foreground flex items-center gap-2">
                 {isSelectedFontLoading ? (
                   <>
-                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <Icon icon="bx:loader-circle" className="h-3 w-3 animate-spin" />
                     Loading selected font...
                   </>
                 ) : (
@@ -944,17 +909,24 @@ export function QRStyleTabs({
             <div className="space-y-2">
               <Label className="text-sm text-muted-foreground">Text color</Label>
               <div className="flex items-center gap-3">
-                <input
-                  type="color"
-                  value={scanLabelStyle.color}
-                  onChange={(e) => updateScanLabelStyle('color', e.target.value.toUpperCase())}
-                  className="h-10 w-10 cursor-pointer rounded-xl border border-border bg-transparent p-1"
-                />
-                <Input
-                  value={scanLabelStyle.color}
-                  onChange={(e) => updateScanLabelStyle('color', e.target.value.toUpperCase())}
-                  className={inputClassName}
-                  maxLength={7}
+                <InlineColorPickerField
+                  color={scanLabelStyle.color}
+                  inputValue={scanLabelStyle.color}
+                  onColorChange={(color) => updateScanLabelStyle('color', color)}
+                  onInputChange={(value) => updateScanLabelStyle('color', value)}
+                  swatches={[
+                    '#171717',
+                    '#FFFFFF',
+                    '#3D3225',
+                    '#1E293B',
+                    '#2563EB',
+                    '#10B981',
+                    '#8B5CF6',
+                    '#EC4899',
+                    '#F97316',
+                    '#EAB308',
+                  ]}
+                  showLabel={false}
                 />
               </div>
             </div>
@@ -996,6 +968,7 @@ export function QRStyleTabs({
           </p>
         </div>
       </div>
+      ) : null}
     </div>
   );
 }

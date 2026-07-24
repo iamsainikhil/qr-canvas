@@ -1,11 +1,17 @@
-import { cn } from '@/lib/utils';
+import { cn, isValidHex, normalizeHex, getImageSrc } from '@/lib/utils';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Plus, X } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Icon } from '@iconify/react';
+import { InlineColorPickerField, fgSwatches, bgSwatches } from '@/components/ColorPicker';
 import themePaperImg from '@/assets/theme-paper.webp';
 import themeMidnightImg from '@/assets/theme-midnight.webp';
 import themePastelImg from '@/assets/theme-pastel.webp';
+import type { StaticImageData } from 'next/image';
+
+const buildAutoGradientCss = (backgroundColor: string, foregroundColor: string) =>
+  `linear-gradient(135deg, ${backgroundColor} 0%, ${foregroundColor} 100%)`;
 
 export interface ThemePreset {
   id: string;
@@ -15,7 +21,7 @@ export interface ThemePreset {
   bgColor: string;
   patternColor?: string;
   bgGradient?: string;
-  image: string;
+  image: string | StaticImageData;
   isCustom?: boolean;
 }
 
@@ -110,9 +116,9 @@ export function ThemePresets({ selectedTheme, onThemeChange, onThemeUnselect, cu
   const [editBgColorInput, setEditBgColorInput] = useState('#FFFFFF');
   const [editFgColorInput, setEditFgColorInput] = useState('#1A1A1A');
   const [editPatternColorInput, setEditPatternColorInput] = useState('#1A1A1A');
-  const [editBgGradient, setEditBgGradient] = useState<string | null>(null);
   const [editBgGradientInput, setEditBgGradientInput] = useState('');
   const [useGradient, setUseGradient] = useState(false);
+  const [lastAutoGradientInput, setLastAutoGradientInput] = useState<string | null>(null);
 
   const openNewThemeDialog = () => {
     setEditBgColor(currentBgColor);
@@ -121,23 +127,37 @@ export function ThemePresets({ selectedTheme, onThemeChange, onThemeUnselect, cu
     setEditBgColorInput(currentBgColor);
     setEditFgColorInput(currentFgColor);
     setEditPatternColorInput(currentPatternColor || currentFgColor);
-    setEditBgGradient(currentBgGradient);
     setEditBgGradientInput(currentBgGradient || '');
+    setLastAutoGradientInput(null);
     setUseGradient(!!currentBgGradient);
     setThemeName('');
     setShowSaveDialog(true);
   };
 
-  const isValidHex = (hex: string) => /^#[0-9A-Fa-f]{6}$/.test(hex);
+  const syncGradientTextarea = (
+    backgroundColor: string,
+    foregroundColor: string,
+    force = false,
+  ) => {
+    const nextGradient = buildAutoGradientCss(backgroundColor, foregroundColor);
+    if (force || !editBgGradientInput.trim() || editBgGradientInput === lastAutoGradientInput) {
+      setEditBgGradientInput(nextGradient);
+      setLastAutoGradientInput(nextGradient);
+    }
+  };
 
   const handleHexInput = (
     value: string,
     setColor: (c: string) => void,
     setInput: (c: string) => void,
+    onValidColor?: (color: string) => void,
   ) => {
-    const normalized = value.startsWith('#') ? value : `#${value}`;
-    setInput(normalized);
-    if (isValidHex(normalized)) setColor(normalized);
+    const formatted = normalizeHex(value);
+    setInput(formatted);
+    if (isValidHex(formatted)) {
+      setColor(formatted);
+      onValidColor?.(formatted);
+    }
   };
 
   const allThemes = [...defaultThemePresets, ...customThemes];
@@ -196,7 +216,7 @@ export function ThemePresets({ selectedTheme, onThemeChange, onThemeUnselect, cu
               )}
             >
               <img 
-                src={theme.image} 
+                src={getImageSrc(theme.image)} 
                 alt={theme.name}
                 className="w-10 h-10 rounded-full flex-shrink-0 object-cover"
                 width={40}
@@ -214,7 +234,7 @@ export function ThemePresets({ selectedTheme, onThemeChange, onThemeUnselect, cu
                 className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
                 title="Delete custom theme"
               >
-                <X size={12} />
+                <Icon icon="lucide:x" width={12} height={12} />
               </button>
             )}
           </div>
@@ -225,7 +245,7 @@ export function ThemePresets({ selectedTheme, onThemeChange, onThemeUnselect, cu
           className="flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-200 border border-border bg-card hover:bg-muted/50"
           title="Create a new custom theme"
         >
-          <Plus size={20} className="text-muted-foreground" />
+          <Icon icon="lucide:plus" width={20} height={20} className="text-muted-foreground" />
           <p className="text-xs font-medium text-foreground">New Theme</p>
         </button>
       </div>
@@ -235,48 +255,61 @@ export function ThemePresets({ selectedTheme, onThemeChange, onThemeUnselect, cu
           <p className="text-xs font-semibold text-foreground">New Theme</p>
 
           {/* Color editors */}
-          <div className="space-y-2">
-            {([
-              { label: 'Background', color: editBgColor, input: editBgColorInput, setColor: setEditBgColor, setInput: setEditBgColorInput },
-              { label: 'Foreground', color: editFgColor, input: editFgColorInput, setColor: setEditFgColor, setInput: setEditFgColorInput },
-              { label: 'Pattern', color: editPatternColor, input: editPatternColorInput, setColor: setEditPatternColor, setInput: setEditPatternColorInput },
-            ] as const).map(({ label, color, input, setColor, setInput }) => (
-              <div key={label} className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground w-20 flex-shrink-0">{label}</span>
-                <label className="relative flex-shrink-0 cursor-pointer">
-                  <input
-                    type="color"
-                    value={color}
-                    onChange={(e) => {
-                      setColor(e.target.value);
-                      setInput(e.target.value);
-                    }}
-                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-                  />
-                  <div
-                    className="w-7 h-7 rounded-lg border border-border shadow-sm flex-shrink-0"
-                    style={{ backgroundColor: color }}
-                  />
-                </label>
-                <Input
-                  value={input}
-                  onChange={(e) => handleHexInput(e.target.value, setColor, setInput)}
-                  placeholder="#000000"
-                  className="text-xs h-7 font-mono flex-1"
-                  maxLength={7}
-                />
-              </div>
-            ))}
+          <div className="space-y-3">
+            <InlineColorPickerField
+              label="Background"
+              color={editBgColor}
+              inputValue={editBgColorInput}
+              onColorChange={(color) => {
+                setEditBgColor(color);
+                setEditBgColorInput(color);
+                if (useGradient) syncGradientTextarea(color, editFgColor);
+              }}
+              onInputChange={(value) => handleHexInput(value, setEditBgColor, setEditBgColorInput, (nextColor) => {
+                if (useGradient) syncGradientTextarea(nextColor, editFgColor);
+              })}
+              swatches={bgSwatches}
+            />
+            <InlineColorPickerField
+              label="Foreground"
+              color={editFgColor}
+              inputValue={editFgColorInput}
+              onColorChange={(color) => {
+                setEditFgColor(color);
+                setEditFgColorInput(color);
+                if (useGradient) syncGradientTextarea(editBgColor, color);
+              }}
+              onInputChange={(value) => handleHexInput(value, setEditFgColor, setEditFgColorInput, (nextColor) => {
+                if (useGradient) syncGradientTextarea(editBgColor, nextColor);
+              })}
+              swatches={fgSwatches}
+            />
+            <InlineColorPickerField
+              label="Pattern"
+              color={editPatternColor}
+              inputValue={editPatternColorInput}
+              onColorChange={(color) => {
+                setEditPatternColor(color);
+                setEditPatternColorInput(color);
+              }}
+              onInputChange={(value) => handleHexInput(value, setEditPatternColor, setEditPatternColorInput)}
+              swatches={fgSwatches}
+            />
           </div>
 
           {/* Gradient toggle and editor */}
           <div className="space-y-2 border-t border-border pt-2">
             <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={useGradient}
-                onChange={(e) => setUseGradient(e.target.checked)}
-                className="w-4 h-4 cursor-pointer"
+                onCheckedChange={(checked) => {
+                  const nextUseGradient = checked === true;
+                  setUseGradient(nextUseGradient);
+                  if (nextUseGradient) {
+                    syncGradientTextarea(editBgColor, editFgColor, true);
+                  }
+                }}
+                className="cursor-pointer"
                 id="use-gradient"
               />
               <label htmlFor="use-gradient" className="text-xs font-medium text-foreground cursor-pointer">
