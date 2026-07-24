@@ -9,15 +9,9 @@ const getOwnerEnv = () => {
   const privateOwner = (process.env.OWNER_EMAIL ?? '').trim();
   const legacyOwner = (process.env.NEXT_PUBLIC_OWNER_EMAIL ?? '').trim();
   const ownerEmail = (privateOwner || legacyOwner).toLowerCase();
-  const ownerSource = privateOwner
-    ? 'OWNER_EMAIL'
-    : legacyOwner
-      ? 'NEXT_PUBLIC_OWNER_EMAIL'
-      : 'none';
 
   return {
     ownerEmail,
-    ownerSource,
     ownerConfigured: Boolean(ownerEmail),
   };
 };
@@ -30,7 +24,6 @@ export async function GET() {
       {
         privateMode: PRIVATE_MODE,
         ownerConfigured: owner.ownerConfigured,
-        ownerSource: owner.ownerSource,
       },
       {
         status: 200,
@@ -44,7 +37,6 @@ export async function GET() {
       {
         privateMode: PRIVATE_MODE,
         ownerConfigured: false,
-        ownerSource: 'none',
         reason: 'server-error',
       },
       {
@@ -76,7 +68,6 @@ export async function POST(request: NextRequest) {
       {
         allowed: false,
         ownerConfigured: owner.ownerConfigured,
-        ownerSource: owner.ownerSource,
         reason: 'owner-not-configured',
       },
       { status: 503 },
@@ -126,7 +117,6 @@ export async function POST(request: NextRequest) {
       {
         allowed: false,
         ownerConfigured: true,
-        ownerSource: owner.ownerSource,
         reason: 'invalid-token-or-server-error',
       },
       { status: 401 },

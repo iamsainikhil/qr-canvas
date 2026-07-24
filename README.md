@@ -310,8 +310,6 @@ To lock the app so only you can use it:
 
 With this enabled, the app verifies sign-in tokens on the server and only allows the Google user matching `OWNER_EMAIL`. The first allowed sign-in creates an `app_config/private` Firestore document that permanently locks the project to that Firebase Auth UID.
 
-Legacy note: `NEXT_PUBLIC_OWNER_EMAIL` is still accepted as a fallback for older deployments, but `OWNER_EMAIL` is preferred to keep the owner address server-only.
-
 ## Firebase Security Rules
 
 ### Firestore

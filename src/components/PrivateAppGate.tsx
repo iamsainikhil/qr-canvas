@@ -91,7 +91,7 @@ function PrivateAccessSetupError() {
           <CardHeader className="text-center">
             <CardTitle className="font-heading text-2xl">Private mode needs setup</CardTitle>
             <CardDescription>
-              Set OWNER_EMAIL (preferred) or NEXT_PUBLIC_OWNER_EMAIL (legacy), plus Firebase client env vars.
+              Set OWNER_EMAIL and Firebase client env vars.
             </CardDescription>
           </CardHeader>
           {missing ? (
