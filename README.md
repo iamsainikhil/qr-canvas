@@ -140,7 +140,7 @@ Theme, pattern, color, logo, and scan label controls.
 
 | Light | Dark |
 |-------|------|
-| ![QR Canvas branded output example](public/screenshots/branded-output-example.png) | ![QR Canvas branded output example (dark)](public/screenshots/branded-output-example-dark.png) |
+| ![QR Canvas branded output example](public/screenshots/branded-output-example.jpeg) | ![QR Canvas branded output example (dark)](public/screenshots/branded-output-example-dark.jpeg) |
 
 Final output with logo from logo.dev (or you can upload your own logo) and scan label.
 
