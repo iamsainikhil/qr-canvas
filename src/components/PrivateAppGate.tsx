@@ -80,8 +80,27 @@ function GateFooter() {
   );
 }
 
-function PrivateAccessSetupError() {
+function formatPrivateReason(reason: string | null) {
+  if (!reason) return null;
+
+  const reasonMap: Record<string, string> = {
+    'owner-not-configured': 'OWNER_EMAIL is not configured on the server environment.',
+    'missing-admin-env': 'Firebase Admin credentials are missing in this deployment.',
+    'firebase-project-mismatch': 'Firebase client and Admin project IDs do not match in this deployment.',
+    'admin-credential-error': 'Firebase Admin private key or service account credentials are invalid.',
+    'token-project-mismatch': 'The ID token belongs to a different Firebase project than the Admin SDK config.',
+    'missing-token': 'No auth token was provided to the owner check endpoint.',
+    'owner-mismatch': 'Signed-in Google email does not match OWNER_EMAIL.',
+    'invalid-token-or-server-error': 'Token verification failed or the server returned an unexpected auth error.',
+    'server-error': 'Server failed while checking private mode configuration.',
+  };
+
+  return reasonMap[reason] ?? `Private mode check failed: ${reason}`;
+}
+
+function PrivateAccessSetupError({ reason }: { reason: string | null }) {
   const missing = missingFirebaseClientEnv.join(', ');
+  const reasonText = formatPrivateReason(reason);
 
   return (
     <div className="relative flex min-h-screen flex-col bg-background">
@@ -94,6 +113,11 @@ function PrivateAccessSetupError() {
               Set OWNER_EMAIL and Firebase client env vars.
             </CardDescription>
           </CardHeader>
+          {reasonText ? (
+            <CardContent className="text-center text-sm text-destructive">
+              {reasonText}
+            </CardContent>
+          ) : null}
           {missing ? (
             <CardContent className="text-center text-sm text-muted-foreground">
               Missing: {missing}
@@ -120,7 +144,15 @@ function PrivateAccessSetupError() {
   );
 }
 
-function AccessDenied({ onSignOut }: { onSignOut: () => Promise<void> }) {
+function AccessDenied({
+  onSignOut,
+  reason,
+}: {
+  onSignOut: () => Promise<void>;
+  reason: string | null;
+}) {
+  const reasonText = formatPrivateReason(reason);
+
   return (
     <div className="relative flex min-h-screen flex-col bg-background">
       <GateHeader />
@@ -133,6 +165,9 @@ function AccessDenied({ onSignOut }: { onSignOut: () => Promise<void> }) {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-3">
+            {reasonText ? (
+              <p className="text-center text-xs text-destructive">{reasonText}</p>
+            ) : null}
             <Button variant="outline" className="rounded-full" onClick={onSignOut}>
               <Icon icon="line-md:logout" className="h-4 w-4" />
               Sign out
@@ -216,6 +251,7 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
   const [signingIn, setSigningIn] = useState(false);
   const [ownerConfigured, setOwnerConfigured] = useState(true);
   const [ownerAllowed, setOwnerAllowed] = useState(false);
+  const [ownerCheckReason, setOwnerCheckReason] = useState<string | null>(null);
   const { toast } = useToast();
 
   const isOwner = useMemo(() => ownerAllowed, [ownerAllowed]);
@@ -231,13 +267,18 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
           method: 'GET',
           cache: 'no-store',
         });
-        const data = (await response.json()) as { ownerConfigured?: boolean };
+        const data = (await response.json()) as {
+          ownerConfigured?: boolean;
+          reason?: string;
+        };
         if (!cancelled) {
           setOwnerConfigured(Boolean(data.ownerConfigured));
+          setOwnerCheckReason(data.reason ?? null);
         }
       } catch {
         if (!cancelled) {
           setOwnerConfigured(false);
+          setOwnerCheckReason('server-error');
         }
       }
     };
@@ -300,12 +341,15 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
       const data = (await response.json()) as {
         allowed?: boolean;
         ownerConfigured?: boolean;
+        reason?: string;
       };
 
       setOwnerConfigured(Boolean(data.ownerConfigured));
       setOwnerAllowed(Boolean(data.allowed));
+      setOwnerCheckReason(data.reason ?? null);
     } catch {
       setOwnerAllowed(false);
+      setOwnerCheckReason('server-error');
     }
   };
 
@@ -365,7 +409,7 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
   }
 
   if (!ownerConfigured || !isFirebaseConfigured) {
-    return <PrivateAccessSetupError />;
+    return <PrivateAccessSetupError reason={ownerCheckReason} />;
   }
 
   if (checking) {
@@ -388,7 +432,7 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
   }
 
   if (!isOwner) {
-    return <AccessDenied onSignOut={handleSignOut} />;
+    return <AccessDenied onSignOut={handleSignOut} reason={ownerCheckReason} />;
   }
 
   return <>{children}</>;
