@@ -308,6 +308,8 @@ To lock the app so only you can use it:
 2. Set `NEXT_PUBLIC_PRIVATE_MODE=true` and `OWNER_EMAIL` in Vercel.
 3. (Optional) Enable Vercel Password Protection for an extra lock.
 
+> When entering Vercel environment variables, prefer raw values without wrapping quotes. The app tolerates quoted values, but unquoted values avoid Firebase Admin credential parsing issues across preview and production deployments.
+
 With this enabled, the app verifies sign-in tokens on the server and only allows the Google user matching `OWNER_EMAIL`. The first allowed sign-in creates an `app_config/private` Firestore document that permanently locks the project to that Firebase Auth UID.
 
 ## Firebase Security Rules
