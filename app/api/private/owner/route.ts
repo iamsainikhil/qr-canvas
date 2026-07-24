@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminAuth } from '@/lib/firebaseAdmin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,21 +23,38 @@ const getOwnerEnv = () => {
 };
 
 export async function GET() {
-  const owner = getOwnerEnv();
+  try {
+    const owner = getOwnerEnv();
 
-  return NextResponse.json(
-    {
-      privateMode: PRIVATE_MODE,
-      ownerConfigured: owner.ownerConfigured,
-      ownerSource: owner.ownerSource,
-    },
-    {
-      status: 200,
-      headers: {
-        'Cache-Control': 'no-store',
+    return NextResponse.json(
+      {
+        privateMode: PRIVATE_MODE,
+        ownerConfigured: owner.ownerConfigured,
+        ownerSource: owner.ownerSource,
       },
-    },
-  );
+      {
+        status: 200,
+        headers: {
+          'Cache-Control': 'no-store',
+        },
+      },
+    );
+  } catch {
+    return NextResponse.json(
+      {
+        privateMode: PRIVATE_MODE,
+        ownerConfigured: false,
+        ownerSource: 'none',
+        reason: 'server-error',
+      },
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store',
+        },
+      },
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -82,6 +98,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const { getAdminAuth } = await import('@/lib/firebaseAdmin');
     const adminAuth = getAdminAuth();
     const decoded = await adminAuth.verifyIdToken(token);
     const email = (decoded.email ?? '').trim().toLowerCase();
@@ -109,7 +126,8 @@ export async function POST(request: NextRequest) {
       {
         allowed: false,
         ownerConfigured: true,
-        reason: 'invalid-token',
+        ownerSource: owner.ownerSource,
+        reason: 'invalid-token-or-server-error',
       },
       { status: 401 },
     );
