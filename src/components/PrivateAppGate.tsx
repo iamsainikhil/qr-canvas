@@ -86,6 +86,7 @@ function formatPrivateReason(reason: string | null) {
   const reasonMap: Record<string, string> = {
     'owner-not-configured': 'OWNER_EMAIL is not configured on the server environment.',
     'missing-admin-env': 'Firebase Admin credentials are missing in this deployment.',
+    'missing-firebase-api-key': 'Firebase Web API key is missing for token lookup in this deployment.',
     'firebase-project-mismatch': 'Firebase client and Admin project IDs do not match in this deployment.',
     'admin-credential-error': 'Firebase Admin private key or service account credentials are invalid.',
     'token-project-mismatch': 'The ID token belongs to a different Firebase project than the Admin SDK config.',

@@ -40,6 +40,10 @@ const getServerAuthConfig = () => {
   };
 };
 
+const getFirebaseWebApiKey = () =>
+  normalizeEnvValue(process.env.FIREBASE_WEB_API_KEY) ||
+  normalizeEnvValue(process.env.NEXT_PUBLIC_FIREBASE_API_KEY);
+
 const maskEmail = (email: string) => {
   const [local = '', domain = ''] = email.split('@');
   if (!local || !domain) return null;
@@ -58,43 +62,14 @@ const maskEmail = (email: string) => {
   return `${localMasked}@${domainMasked}`;
 };
 
-const classifyVerifyError = (error: unknown) => {
-  const rawCode =
-    typeof error === 'object' && error !== null && 'code' in error
-      ? String((error as { code?: unknown }).code ?? '')
-      : '';
-  const code = rawCode.toLowerCase();
-  const message = error instanceof Error ? error.message.toLowerCase() : '';
+const classifyTokenLookupError = (errorCode: string) => {
+  const code = errorCode.toUpperCase();
 
-  if (code.includes('id-token-expired')) {
-    return { reason: 'token-expired', code, message };
-  }
+  if (code.includes('TOKEN_EXPIRED')) return 'token-expired';
+  if (code.includes('USER_DISABLED')) return 'token-revoked';
+  if (code.includes('INVALID_ID_TOKEN')) return 'invalid-id-token';
 
-  if (code.includes('id-token-revoked')) {
-    return { reason: 'token-revoked', code, message };
-  }
-
-  if (code.includes('invalid-id-token')) {
-    return { reason: 'invalid-id-token', code, message };
-  }
-
-  if (message.includes('missing firebase admin environment variables')) {
-    return { reason: 'missing-admin-env', code, message };
-  }
-
-  if (message.includes('private key') || message.includes('pem')) {
-    return { reason: 'admin-credential-error', code, message };
-  }
-
-  if (
-    message.includes('incorrect "aud"') ||
-    message.includes('incorrect "iss"') ||
-    message.includes('project')
-  ) {
-    return { reason: 'token-project-mismatch', code, message };
-  }
-
-  return { reason: 'invalid-token-or-server-error', code, message };
+  return 'invalid-token-or-server-error';
 };
 
 export async function GET() {
@@ -215,11 +190,62 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const webApiKey = getFirebaseWebApiKey();
+  if (!webApiKey) {
+    return NextResponse.json(
+      {
+        allowed: false,
+        ownerConfigured: true,
+        reason: 'missing-firebase-api-key',
+      },
+      { status: 503 },
+    );
+  }
+
   try {
-    const { getAdminAuth } = await import('@/lib/firebaseAdmin');
-    const adminAuth = getAdminAuth();
-    const decoded = await adminAuth.verifyIdToken(token);
-    const email = (decoded.email ?? '').trim().toLowerCase();
+    const lookupResponse = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(webApiKey)}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ idToken: token }),
+        cache: 'no-store',
+      },
+    );
+
+    if (!lookupResponse.ok) {
+      const payload = (await lookupResponse.json().catch(() => null)) as
+        | {
+            error?: {
+              message?: string;
+            };
+          }
+        | null;
+      const errorCode = payload?.error?.message ?? 'UNKNOWN_TOKEN_LOOKUP_ERROR';
+      const reason = classifyTokenLookupError(errorCode);
+
+      return NextResponse.json(
+        {
+          allowed: false,
+          ownerConfigured: true,
+          reason,
+          debug: {
+            errorCode,
+            errorMessage: `Identity Toolkit lookup failed with HTTP ${lookupResponse.status}`,
+          },
+        },
+        { status: reason === 'invalid-token-or-server-error' ? 401 : 503 },
+      );
+    }
+
+    const payload = (await lookupResponse.json()) as {
+      users?: Array<{
+        email?: string;
+      }>;
+    };
+    const email = (payload.users?.[0]?.email ?? '').trim().toLowerCase();
 
     if (email !== ownerEmail) {
       return NextResponse.json(
@@ -244,20 +270,19 @@ export async function POST(request: NextRequest) {
       { status: 200 },
     );
   } catch (error) {
-    const verifyError = classifyVerifyError(error);
-    const status = verifyError.reason === 'invalid-token-or-server-error' ? 401 : 503;
+    const message = error instanceof Error ? error.message : String(error);
 
     return NextResponse.json(
       {
         allowed: false,
         ownerConfigured: true,
-        reason: verifyError.reason,
+        reason: 'invalid-token-or-server-error',
         debug: {
-          errorCode: verifyError.code || null,
-          errorMessage: verifyError.message ? verifyError.message.slice(0, 220) : null,
+          errorCode: 'TOKEN_LOOKUP_EXCEPTION',
+          errorMessage: message.slice(0, 220),
         },
       },
-      { status },
+      { status: 401 },
     );
   }
 }
