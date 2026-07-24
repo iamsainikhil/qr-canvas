@@ -333,6 +333,9 @@ export function QRStyleTabs({
     const urlConfig = urlInputConfigs[qrType];
     if (urlConfig) {
       const uploadConfig = destinationUploadConfig[qrType];
+      const hintText = uploadConfig && !onUploadDestinationFile
+        ? 'Public demo: destination file uploads are disabled. Paste a public file URL instead, or self-host your own instance.'
+        : urlConfig.hint;
 
       return (
         <div className="space-y-2">
@@ -380,7 +383,7 @@ export function QRStyleTabs({
               </div>
             </label>
           ) : null}
-          <p className="text-sm text-muted-foreground">{urlConfig.hint}</p>
+          <p className="text-sm text-muted-foreground">{hintText}</p>
         </div>
       );
     }

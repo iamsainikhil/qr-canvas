@@ -31,7 +31,7 @@ function GateHeader() {
         <img src="/logo.png" alt="QR Canvas" className="w-12 h-12 rounded-xl" />
         <div>
           <h1 className="font-heading text-xl font-bold text-foreground">QR Canvas</h1>
-          <p className="text-sm text-muted-foreground">Generate unlimited dynamic QR codes with scan tracking</p>
+          <p className="text-sm text-muted-foreground">Generate dynamic QR codes with scan tracking</p>
         </div>
       </a>
       <div className="flex items-center gap-2">
@@ -91,7 +91,7 @@ function PrivateAccessSetupError() {
           <CardHeader className="text-center">
             <CardTitle className="font-heading text-2xl">Private mode needs setup</CardTitle>
             <CardDescription>
-              Set OWNER_EMAIL and Firebase client env vars to lock this deployment.
+              Set OWNER_EMAIL (preferred) or NEXT_PUBLIC_OWNER_EMAIL (legacy), plus Firebase client env vars.
             </CardDescription>
           </CardHeader>
           {missing ? (
@@ -180,7 +180,7 @@ function PrivateSignIn({
             <div className="mb-2 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary">
               <Icon icon="solar:lock-outline" className="h-5 w-5 text-foreground" />
             </div>
-            <CardTitle className="font-heading text-3xl">Private QR Console</CardTitle>
+            <CardTitle className="font-heading text-3xl">Dashboard</CardTitle>
             <CardDescription>
               Sign in with Google using your owner account.
             </CardDescription>

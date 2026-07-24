@@ -27,6 +27,8 @@ interface QRPreviewProps {
   scanText?: string;
   scanLabelStyle?: ScanLabelStyleOptions;
   onSave?: () => void;
+  saveDisabled?: boolean;
+  saveDisabledTitle?: string;
 }
 
 const drawRoundedRect = (
@@ -161,6 +163,8 @@ export function QRPreview({
   scanText = '',
   scanLabelStyle = defaultScanLabelStyle,
   onSave,
+  saveDisabled = false,
+  saveDisabledTitle,
 }: QRPreviewProps) {
   const qrRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -502,19 +506,6 @@ export function QRPreview({
         </div>
         <Button
           variant="outline"
-          onClick={onSave}
-          disabled={!hasContent}
-          className={cn(
-            "h-11 w-11 rounded-full px-0 inline-flex items-center justify-center gap-0 xl:w-auto xl:px-4 xl:gap-2",
-            hasContent ? "" : "cursor-not-allowed"
-          )}
-          title="Save"
-        >
-          <Icon icon="lucide:bookmark-plus" className="h-4 w-4" />
-          <span className="hidden xl:inline">Save</span>
-        </Button>
-        <Button
-          variant="outline"
           onClick={copyToClipboard}
           disabled={!hasContent}
           className={cn(
@@ -525,6 +516,19 @@ export function QRPreview({
         >
           {copied ? <Icon icon="mdi-light:check" className="w-4 h-4" /> : <Icon icon="lucide:copy" className="w-4 h-4" />}
           <span className="hidden xl:inline">{copied ? 'Copied' : 'Copy'}</span>
+        </Button>
+        <Button
+          variant="outline"
+          onClick={onSave}
+          disabled={!hasContent || saveDisabled}
+          className={cn(
+            "h-11 w-11 rounded-full px-0 inline-flex items-center justify-center gap-0 xl:w-auto xl:px-4 xl:gap-2",
+            hasContent && !saveDisabled ? "" : "cursor-not-allowed"
+          )}
+          title={saveDisabledTitle || 'Save'}
+        >
+          <Icon icon="lucide:bookmark-plus" className="h-4 w-4" />
+          <span className="hidden xl:inline">Save</span>
         </Button>
       </div>
     </div>

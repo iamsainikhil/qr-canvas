@@ -26,7 +26,8 @@ import {
 
 import { getCurrentOwnerUid } from '@/lib/authOwner';
 import { saveQrCodeForOwner, subscribeToOwnerQrCodes } from '@/lib/firestoreQrCodes';
-import { storage } from '@/integrations/firebase/client';
+import { firebaseAuth, storage } from '@/integrations/firebase/client';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export type LogoSource = 'none' | 'upload' | 'favicon' | 'logo-dev';
 export type LogoDevLookupMode = 'domain' | 'name' | 'ticker' | 'crypto' | 'isin';
@@ -108,6 +109,7 @@ const deriveLogoDevLookup = (
 };
 
 const Index = () => {
+  const privateMode = process.env.NEXT_PUBLIC_PRIVATE_MODE === 'true';
   const logoDevPublishableKey = process.env.NEXT_PUBLIC_LOGO_DEV_PUBLISHABLE_KEY;
   const { toast } = useToast();
   const { theme, toggleTheme } = useTheme();
@@ -152,6 +154,37 @@ const Index = () => {
   const [logoStyle, setLogoStyle] = useState<LogoStyleOptions>(defaultLogoStyleOptions);
   const [savedCount, setSavedCount] = useState(0);
   const [isDestinationUploadInProgress, setIsDestinationUploadInProgress] = useState(false);
+  const [canSavePrivately, setCanSavePrivately] = useState(!privateMode);
+
+  useEffect(() => {
+    if (!privateMode || !firebaseAuth) {
+      setCanSavePrivately(true);
+      return;
+    }
+
+    const unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => {
+      if (!user) {
+        setCanSavePrivately(false);
+        return;
+      }
+
+      try {
+        const token = await user.getIdToken();
+        const response = await fetch('/api/private/owner', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = (await response.json()) as { allowed?: boolean };
+        setCanSavePrivately(Boolean(data.allowed));
+      } catch {
+        setCanSavePrivately(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [privateMode]);
 
   useEffect(() => {
     const ownerUid = getCurrentOwnerUid();
@@ -235,6 +268,10 @@ const Index = () => {
   }, [autoFaviconUrl, logo, logoDevUrl, logoSource]);
 
   const uploadQrDestinationFile = async (type: UploadableQRType, file: File) => {
+    if (privateMode && !canSavePrivately) {
+      throw new Error('File uploads are owner-only on this deployment. Fork and self-host to enable uploads.');
+    }
+
     const ownerUid = getCurrentOwnerUid();
     if (!ownerUid) {
       throw new Error('Sign in required before uploading files.');
@@ -283,6 +320,15 @@ const Index = () => {
   const saveCurrentQrCode = async () => {
     const value = qrValue.trim();
     if (!value) return;
+
+    if (privateMode && !canSavePrivately) {
+      toast({
+        title: 'Saving is private in this demo',
+        description: 'Open Dashboard to sign in as the owner, or fork and self-host to enable your own private saves.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     const ownerUid = getCurrentOwnerUid();
     if (!ownerUid) {
@@ -334,7 +380,7 @@ const Index = () => {
     qrType,
     value: currentValue,
     onValueChange: setCurrentValue,
-    onUploadDestinationFile: uploadQrDestinationFile,
+    onUploadDestinationFile: privateMode && !canSavePrivately ? undefined : uploadQrDestinationFile,
     isDestinationUploading: isDestinationUploadInProgress,
     wifiSSID,
     onWifiSSIDChange: setWifiSSID,
@@ -405,8 +451,47 @@ const Index = () => {
               <img src="/logo.png" alt="QR Canvas" className="h-11 w-11 flex-shrink-0 rounded-xl sm:h-12 sm:w-12" />
               <div className="min-w-0">
                 <h1 className="truncate font-heading text-xl font-bold text-foreground">QR Canvas</h1>
-                <p className="hidden text-sm text-muted-foreground sm:block">Generate unlimited dynamic QR codes with scan tracking</p>
-                <p className="text-xs text-muted-foreground sm:hidden">Generate dynamic QR codes with scan tracking</p>
+                {privateMode && canSavePrivately ? (
+                  <>
+                    <p className="hidden text-sm text-muted-foreground sm:block">
+                      Generate dynamic QR codes with scan tracking.
+                    </p>
+                    <p className="text-xs text-muted-foreground sm:hidden">
+                      Generate dynamic QR codes with scan tracking.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="hidden text-sm text-muted-foreground sm:block">
+                      Create Static QR codes instantly. Dynamic QR codes, dashboard of saved QR codes, and tracking analytics are owner-only.
+                    </p>
+                    <p className="hidden text-sm text-muted-foreground sm:block">
+                      <a
+                        href="https://github.com/iamsainikhil/qr-canvas"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline underline-offset-2 transition-colors hover:text-foreground"
+                      >
+                        Fork on GitHub
+                      </a>{' '}
+                      to self-host and unlock the full private QR canvas studio.
+                    </p>
+                    <p className="text-xs text-muted-foreground sm:hidden">
+                      Public demo: QR creation only.
+                    </p>
+                    <p className="text-xs text-muted-foreground sm:hidden">
+                      <a
+                        href="https://github.com/iamsainikhil/qr-canvas"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline underline-offset-2 transition-colors hover:text-foreground"
+                      >
+                        Fork on GitHub
+                      </a>{' '}
+                      to self-host for destination updates + analytics.
+                    </p>
+                  </>
+                )}
               </div>
             </div>
             <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
@@ -500,7 +585,41 @@ const Index = () => {
                 scanText={scanText}
                 scanLabelStyle={scanLabelStyle}
                 onSave={saveCurrentQrCode}
+                saveDisabled={privateMode && !canSavePrivately}
+                saveDisabledTitle={
+                  privateMode && !canSavePrivately
+                    ? 'Saving is private on this deployment. Open Dashboard for owner access or self-host your own copy.'
+                    : 'Save'
+                }
               />
+              {privateMode && !canSavePrivately && (
+                <div className="mt-3 space-y-2 rounded-xl border border-border/70 bg-secondary/25 px-3 py-2 text-xs text-muted-foreground">
+                  <div className="flex items-start gap-2">
+                    <span className="mt-0.5 inline-flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                      <Icon icon="solar:lock-linear" className="h-3.5 w-3.5" />
+                    </span>
+                    <p className="leading-5 text-left">
+                      Public demo mode: Download and copy are open. Saving, dashboard analytics, and destination file uploads are owner-only.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                      <Icon icon="line-md:github" className="h-3.5 w-3.5" />
+                    </span>
+                    <p className="leading-5 text-left">
+                      <a
+                        href="https://github.com/iamsainikhil/qr-canvas"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium underline underline-offset-2 transition-colors hover:text-foreground"
+                      >
+                        Fork on GitHub
+                      </a>{' '}
+                      to self-host your own private instance.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </main>
 
