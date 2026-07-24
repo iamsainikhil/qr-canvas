@@ -1,6 +1,7 @@
 import { PropsWithChildren, useEffect, useMemo, useState } from 'react';
 import {
   User,
+  getRedirectResult,
   onAuthStateChanged,
   signInWithPopup,
   signInWithRedirect,
@@ -17,12 +18,13 @@ import {
   isFirebaseConfigured,
   missingFirebaseClientEnv,
 } from '@/integrations/firebase/client';
+import { getBooleanEnv } from '@/lib/env';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useTheme } from '@/hooks/use-theme';
 import { useToast } from '@/hooks/use-toast';
 
-const PRIVATE_MODE = process.env.NEXT_PUBLIC_PRIVATE_MODE === 'true';
+const PRIVATE_MODE = getBooleanEnv(process.env.NEXT_PUBLIC_PRIVATE_MODE);
 const GITHUB_REPO = 'https://github.com/iamsainikhil/qr-canvas';
 const POPUP_FALLBACK_ERROR_CODES = new Set([
   'auth/popup-blocked',
@@ -319,6 +321,10 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
 
   useEffect(() => {
     if (!PRIVATE_MODE || !firebaseAuth) return;
+
+    getRedirectResult(firebaseAuth).catch(() => {
+      // Redirect result already handled by onAuthStateChanged
+    });
 
     const unsubscribe = onAuthStateChanged(firebaseAuth, async (nextUser) => {
       setUser(nextUser);

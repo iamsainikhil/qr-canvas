@@ -28,6 +28,7 @@ import { getCurrentOwnerUid } from '@/lib/authOwner';
 import { saveQrCodeForOwner, subscribeToOwnerQrCodes } from '@/lib/firestoreQrCodes';
 import { firebaseAuth, storage } from '@/integrations/firebase/client';
 import { onAuthStateChanged } from 'firebase/auth';
+import { getBooleanEnv } from '@/lib/env';
 
 export type LogoSource = 'none' | 'upload' | 'favicon' | 'logo-dev';
 export type LogoDevLookupMode = 'domain' | 'name' | 'ticker' | 'crypto' | 'isin';
@@ -109,7 +110,7 @@ const deriveLogoDevLookup = (
 };
 
 const Index = () => {
-  const privateMode = process.env.NEXT_PUBLIC_PRIVATE_MODE === 'true';
+  const privateMode = getBooleanEnv(process.env.NEXT_PUBLIC_PRIVATE_MODE);
   const logoDevPublishableKey = process.env.NEXT_PUBLIC_LOGO_DEV_PUBLISHABLE_KEY;
   const { toast } = useToast();
   const { theme, toggleTheme } = useTheme();
