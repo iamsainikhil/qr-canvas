@@ -330,8 +330,63 @@ const Index = () => {
     }
   };
 
+  const sharedStyleTabsProps = {
+    qrType,
+    value: currentValue,
+    onValueChange: setCurrentValue,
+    onUploadDestinationFile: uploadQrDestinationFile,
+    isDestinationUploading: isDestinationUploadInProgress,
+    wifiSSID,
+    onWifiSSIDChange: setWifiSSID,
+    wifiPassword,
+    onWifiPasswordChange: setWifiPassword,
+    wifiEncryption,
+    onWifiEncryptionChange: setWifiEncryption,
+    emailAddress,
+    onEmailAddressChange: setEmailAddress,
+    emailSubject,
+    onEmailSubjectChange: setEmailSubject,
+    emailBody,
+    onEmailBodyChange: setEmailBody,
+    smsPhone,
+    onSmsPhoneChange: setSmsPhone,
+    smsMessage,
+    onSmsMessageChange: setSmsMessage,
+    frameStyle,
+    onFrameStyleChange: setFrameStyle,
+    fgColor,
+    onFgColorChange: setFgColor,
+    bgColor,
+    onBgColorChange: setBgColor,
+    patternColor,
+    onPatternColorChange: setPatternColor,
+    bgGradient,
+    onBgGradientChange: setBgGradient,
+    logo,
+    onLogoChange: setLogo,
+    logoSource,
+    onLogoSourceChange: setLogoSource,
+    logoDevMode,
+    onLogoDevModeChange: setLogoDevMode,
+    logoDevQuery,
+    onLogoDevQueryChange: setLogoDevQuery,
+    derivedLogoDevMode: derivedLogoDevLookup?.mode ?? null,
+    derivedLogoDevQuery: derivedLogoDevLookup?.query ?? '',
+    logoStyle,
+    onLogoStyleChange: setLogoStyle,
+    bodyShape,
+    onBodyShapeChange: setBodyShape,
+    scanText,
+    onScanTextChange: setScanText,
+    scanLabelStyle,
+    onScanLabelStyleChange: setScanLabelStyle,
+    autoFaviconUrl,
+    logoDevUrl,
+    isLogoDevConfigured: Boolean(logoDevPublishableKey),
+  };
+
   return (
-    <div className="min-h-screen w-full bg-background xl:flex xl:h-screen xl:overflow-hidden">
+    <div className="min-h-screen w-full bg-background xl:flex">
         {/* Left Sidebar - QR Type Selector */}
         <aside className="hidden w-72 flex-shrink-0 bg-background pt-8 pl-4 pr-2 xl:block">
           <ScrollArea className="h-[calc(100vh-2rem)] pr-2">
@@ -343,17 +398,18 @@ const Index = () => {
         </aside>
 
         {/* Main Content */}
-        <div className="flex min-h-screen flex-col xl:h-screen xl:min-h-0 xl:flex-1">
-        <div className="mx-auto w-full max-w-7xl px-4 pt-4 sm:px-6 lg:px-8 xl:pt-6">
-          <header className="flex items-center justify-between rounded-2xl border border-border bg-card px-5 py-4">
-            <div className="flex items-center gap-3">
-              <img src="/logo.png" alt="QR Canvas" className="w-12 h-12 rounded-xl" />
-              <div>
-                <h1 className="font-heading text-xl font-bold text-foreground">QR Canvas</h1>
-                <p className="text-sm text-muted-foreground">Generate unlimited dynamic QR codes with scan tracking</p>
+        <div className="flex min-h-screen flex-col xl:flex-1">
+        <div className="mx-auto w-full max-w-7xl px-3 pt-3 sm:px-6 lg:px-8 xl:pt-6">
+          <header className="flex flex-col gap-4 rounded-2xl border border-border bg-card px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div className="flex min-w-0 items-center gap-3">
+              <img src="/logo.png" alt="QR Canvas" className="h-11 w-11 flex-shrink-0 rounded-xl sm:h-12 sm:w-12" />
+              <div className="min-w-0">
+                <h1 className="truncate font-heading text-xl font-bold text-foreground">QR Canvas</h1>
+                <p className="hidden text-sm text-muted-foreground sm:block">Generate unlimited dynamic QR codes with scan tracking</p>
+                <p className="text-xs text-muted-foreground sm:hidden">Generate dynamic QR codes with scan tracking</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
               <Button
                 variant="ghost"
                 size="icon"
@@ -368,7 +424,7 @@ const Index = () => {
                 )}
               </Button>
               <Button asChild variant="paper" className="rounded-full">
-              <Link href="/dashboard" className="inline-flex items-center gap-2">
+              <Link href="/dashboard" className="inline-flex items-center gap-2 whitespace-nowrap">
                 <Icon icon="lucide:layout-dashboard" className="h-4 w-4" />
                 Dashboard ({savedCount})
               </Link>
@@ -378,20 +434,20 @@ const Index = () => {
         </div>
 
         {/* Mobile QR Type Selector - Dropdown */}
-        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 xl:hidden">
-          <div className="mb-4 rounded-2xl border border-border bg-card p-4">
-            <h2 className="font-heading text-[20px] font-bold tracking-tight text-foreground leading-[120%] mb-3">Select QR type</h2>
+        <div className="mx-auto mt-4 w-full max-w-7xl px-3 sm:px-6 lg:px-8 xl:hidden">
+          <div className="mb-4 rounded-2xl border border-border bg-card p-3 sm:p-4">
+            <h2 className="mb-2 font-heading text-[18px] font-bold leading-[120%] tracking-tight text-foreground sm:mb-3 sm:text-[20px]">Select QR type</h2>
             <Select value={qrType} onValueChange={(value) => setQrType(value as QRType)}>
-              <SelectTrigger className="w-full h-14 rounded-xl bg-background border-border focus:ring-0 focus:ring-offset-0 focus:outline-none focus:border-border">
+              <SelectTrigger className="h-12 w-full rounded-xl border-border bg-background focus:border-border focus:outline-none focus:ring-0 focus:ring-offset-0 sm:h-14">
                 <SelectValue>
                   {(() => {
                     const selected = qrTypes.find(opt => opt.id === qrType);
                     return selected ? (
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2.5 sm:gap-3">
                         <img 
                           src={getImageSrc(selected.image)} 
                           alt={selected.label} 
-                          className="w-10 h-7 rounded object-cover"
+                          className="h-6 w-9 rounded object-cover sm:h-7 sm:w-10"
                         />
                         <span className="font-medium">{selected.label}</span>
                       </div>
@@ -401,12 +457,12 @@ const Index = () => {
               </SelectTrigger>
               <SelectContent className="bg-card border-border z-50">
                 {qrTypes.map((type) => (
-                  <SelectItem key={type.id} value={type.id} className="h-14 py-2">
-                    <div className="flex items-center gap-3">
+                  <SelectItem key={type.id} value={type.id} className="h-12 py-1.5 sm:h-14 sm:py-2">
+                    <div className="flex items-center gap-2.5 sm:gap-3">
                       <img 
                         src={getImageSrc(type.image)} 
                         alt={type.label} 
-                        className="w-10 h-7 rounded object-cover"
+                        className="h-6 w-9 rounded object-cover sm:h-7 sm:w-10"
                       />
                       <span className="font-medium">{type.label}</span>
                     </div>
@@ -417,11 +473,18 @@ const Index = () => {
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col md:flex-row md:items-start xl:min-h-0">
+        <div className="mt-2 flex flex-col md:mt-5 md:flex-row md:items-start xl:mt-6">
           {/* Center - QR Preview */}
-          <main className="flex w-full min-w-0 flex-col items-center justify-center px-4 pb-4 pt-0 sm:px-6 md:flex-1 md:justify-start md:px-8 md:pb-6 xl:overflow-y-auto xl:overflow-x-hidden xl:px-12 xl:pt-6">
-            <div className="w-full max-w-md rounded-3xl border border-border bg-card p-4 sm:p-5" style={{ boxShadow: '0 14px 8px 0 rgba(64, 64, 64, 0.04), 0 6px 6px 0 rgba(64, 64, 64, 0.07), 0 2px 3px 0 rgba(64, 64, 64, 0.08)' }}>
+          <main className="flex w-full min-w-0 flex-col items-center justify-center px-3 pb-4 pt-0 sm:px-6 md:flex-1 md:justify-start md:px-8 md:pb-6 xl:px-12 xl:pt-6">
+            <div className="w-full max-w-2xl rounded-3xl border border-border bg-card p-4 sm:max-w-md sm:p-5 xl:sticky xl:top-6" style={{ boxShadow: '0 14px 8px 0 rgba(64, 64, 64, 0.04), 0 6px 6px 0 rgba(64, 64, 64, 0.07), 0 2px 3px 0 rgba(64, 64, 64, 0.08)' }}>
               <h2 className="font-heading text-[20px] font-bold tracking-tight text-foreground leading-[120%] mb-3">Live preview</h2>
+              <div className="mb-5">
+                <QRStyleTabs
+                  {...sharedStyleTabsProps}
+                  showContentSection
+                  showStyleSection={false}
+                />
+              </div>
               <QRPreview
                 qrValue={qrValue}
                 fgColor={fgColor}
@@ -442,61 +505,14 @@ const Index = () => {
           </main>
 
           {/* Right - Style Panel */}
-          <aside className="w-full max-w-full min-w-0 overflow-x-hidden px-4 pb-8 pt-6 sm:px-6 md:w-[400px] md:flex-shrink-0 md:border-l md:border-border/60 md:px-6 md:pt-6 xl:h-full xl:w-[440px] xl:overflow-y-auto xl:px-8 xl:pt-8">
-            <QRStyleTabs
-              qrType={qrType}
-              value={currentValue}
-              onValueChange={setCurrentValue}
-              onUploadDestinationFile={uploadQrDestinationFile}
-              isDestinationUploading={isDestinationUploadInProgress}
-              wifiSSID={wifiSSID}
-              onWifiSSIDChange={setWifiSSID}
-              wifiPassword={wifiPassword}
-              onWifiPasswordChange={setWifiPassword}
-              wifiEncryption={wifiEncryption}
-              onWifiEncryptionChange={setWifiEncryption}
-              emailAddress={emailAddress}
-              onEmailAddressChange={setEmailAddress}
-              emailSubject={emailSubject}
-              onEmailSubjectChange={setEmailSubject}
-              emailBody={emailBody}
-              onEmailBodyChange={setEmailBody}
-              smsPhone={smsPhone}
-              onSmsPhoneChange={setSmsPhone}
-              smsMessage={smsMessage}
-              onSmsMessageChange={setSmsMessage}
-              frameStyle={frameStyle}
-              onFrameStyleChange={setFrameStyle}
-              fgColor={fgColor}
-              onFgColorChange={setFgColor}
-              bgColor={bgColor}
-              onBgColorChange={setBgColor}
-              patternColor={patternColor}
-              onPatternColorChange={setPatternColor}
-              bgGradient={bgGradient}
-              onBgGradientChange={setBgGradient}
-              logo={logo}
-              onLogoChange={setLogo}
-              logoSource={logoSource}
-              onLogoSourceChange={setLogoSource}
-              logoDevMode={logoDevMode}
-              onLogoDevModeChange={setLogoDevMode}
-              logoDevQuery={logoDevQuery}
-              onLogoDevQueryChange={setLogoDevQuery}
-              derivedLogoDevMode={derivedLogoDevLookup?.mode ?? null}
-              derivedLogoDevQuery={derivedLogoDevLookup?.query ?? ''}
-              logoStyle={logoStyle}
-              onLogoStyleChange={setLogoStyle}
-              bodyShape={bodyShape}
-              onBodyShapeChange={setBodyShape}
-              scanText={scanText}
-              onScanTextChange={setScanText}
-              scanLabelStyle={scanLabelStyle}
-              onScanLabelStyleChange={setScanLabelStyle}
-              autoFaviconUrl={autoFaviconUrl}
-              logoDevUrl={logoDevUrl}
-              isLogoDevConfigured={Boolean(logoDevPublishableKey)}
-            />
+          <aside className="w-full max-w-full min-w-0 overflow-x-hidden px-3 pb-8 pt-6 sm:px-6 md:sticky md:top-6 md:max-h-[calc(100vh-3rem)] md:w-[400px] md:flex-shrink-0 md:overflow-y-auto md:overscroll-contain md:px-6 md:pt-2 xl:w-[440px] xl:px-8 xl:pt-6">
+            <div className="md:rounded-3xl md:border md:border-border/70 md:bg-card md:p-5 md:shadow-[0_12px_36px_-24px_rgba(15,23,42,0.45)] xl:p-6">
+              <QRStyleTabs
+                {...sharedStyleTabsProps}
+                showContentSection={false}
+                showStyleSection
+              />
+            </div>
           </aside>
         </div>
       </div>

@@ -74,6 +74,8 @@ interface QRStyleTabsProps {
   autoFaviconUrl?: string | null;
   logoDevUrl?: string | null;
   isLogoDevConfigured: boolean;
+  showContentSection?: boolean;
+  showStyleSection?: boolean;
 }
 
 const logoSourceOptions: { id: LogoSource; label: string; enabled: boolean }[] = [
@@ -142,6 +144,8 @@ export function QRStyleTabs({
   autoFaviconUrl,
   logoDevUrl,
   isLogoDevConfigured,
+  showContentSection = true,
+  showStyleSection = true,
 }: QRStyleTabsProps) {
   const { toast } = useToast();
   const [selectedTheme, setSelectedTheme] = useState('');
@@ -515,16 +519,28 @@ export function QRStyleTabs({
 
   return (
     <div className="space-y-6">
-      <div className="space-y-3">
-        <h2 className="font-heading text-[20px] font-bold tracking-tight text-foreground leading-[120%]">Content</h2>
-        <div className="rounded-2xl border border-border bg-card p-4">
-          {renderInputFields()}
+      {showContentSection ? (
+        <div className="space-y-3">
+          <h2 className="font-heading text-[20px] font-bold tracking-tight text-foreground leading-[120%]">Content</h2>
+          <div className="rounded-2xl border border-border bg-card p-4">
+            {renderInputFields()}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {/* Style Section */}
+      {showStyleSection ? (
       <div className="space-y-6">
         <h2 className="font-heading text-[20px] font-bold tracking-tight text-foreground leading-[120%]">Style your QR</h2>
+        
+        {/* Body Shape */}
+        <div className="space-y-3">
+          <p className="font-heading text-sm font-bold tracking-tight text-foreground">Pattern</p>
+          <BodyShapeSelector
+            selectedShape={bodyShape || 'square'}
+            onShapeChange={(shape) => onBodyShapeChange?.(shape)}
+          />
+        </div>
         
         {/* Theme Presets */}
         <div className="space-y-3">
@@ -537,15 +553,6 @@ export function QRStyleTabs({
             currentBgColor={bgColor}
             currentPatternColor={patternColor || null}
             currentBgGradient={bgGradient || null}
-          />
-        </div>
-
-        {/* Body Shape */}
-        <div className="space-y-3">
-          <p className="font-heading text-sm font-bold tracking-tight text-foreground">Pattern</p>
-          <BodyShapeSelector
-            selectedShape={bodyShape || 'square'}
-            onShapeChange={(shape) => onBodyShapeChange?.(shape)}
           />
         </div>
 
@@ -961,6 +968,7 @@ export function QRStyleTabs({
           </p>
         </div>
       </div>
+      ) : null}
     </div>
   );
 }

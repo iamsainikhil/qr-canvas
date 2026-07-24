@@ -476,7 +476,7 @@ export function QRPreview({
       </div>
 
       {/* Action Buttons */}
-      <div className="flex items-center gap-2 w-full pt-1">
+      <div className="flex w-full items-center gap-2 pt-1">
         <div className="relative flex-1">
           {/* Glow effect */}
           <div className={cn(
@@ -487,16 +487,17 @@ export function QRPreview({
             onClick={downloadQR}
             disabled={!hasContent}
             className={cn(
-              "relative w-full h-12 rounded-full font-medium text-base border-0 shadow-none transition-all inline-flex items-center justify-center gap-2",
+              "relative h-12 w-full rounded-full border-0 text-base font-medium shadow-none transition-all inline-flex items-center justify-center gap-2",
               "lg:h-11",
               hasContent 
                 ? "text-white hover:opacity-90"
                 : "bg-muted text-muted-foreground cursor-not-allowed"
             )}
             style={hasContent ? { background: 'linear-gradient(91deg, #8FA2F5 0%, #587FED 36.54%, #587FED 67.26%, #8FA2F5 100%)' } : undefined}
+            title="Download"
           >
             <Icon icon="lucide:download" className="h-4 w-4" />
-            Download
+            <span className="hidden xl:inline">Download</span>
           </Button>
         </div>
         <Button
@@ -504,24 +505,26 @@ export function QRPreview({
           onClick={onSave}
           disabled={!hasContent}
           className={cn(
-            "h-11 rounded-full px-4 inline-flex items-center gap-2",
+            "h-11 w-11 rounded-full px-0 inline-flex items-center justify-center gap-0 xl:w-auto xl:px-4 xl:gap-2",
             hasContent ? "" : "cursor-not-allowed"
           )}
+          title="Save"
         >
           <Icon icon="lucide:bookmark-plus" className="h-4 w-4" />
-          Save
+          <span className="hidden xl:inline">Save</span>
         </Button>
         <Button
           variant="outline"
           onClick={copyToClipboard}
           disabled={!hasContent}
           className={cn(
-            "h-11 rounded-full px-4 inline-flex items-center gap-2",
+            "h-11 w-11 rounded-full px-0 inline-flex items-center justify-center gap-0 xl:w-auto xl:px-4 xl:gap-2",
             hasContent ? "" : "cursor-not-allowed opacity-50"
           )}
+          title={copied ? 'Copied' : 'Copy'}
         >
           {copied ? <Icon icon="mdi-light:check" className="w-4 h-4" /> : <Icon icon="lucide:copy" className="w-4 h-4" />}
-          {copied ? 'Copied' : 'Copy'}
+          <span className="hidden xl:inline">{copied ? 'Copied' : 'Copy'}</span>
         </Button>
       </div>
     </div>
