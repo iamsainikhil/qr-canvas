@@ -86,7 +86,6 @@ function formatPrivateReason(reason: string | null) {
   const reasonMap: Record<string, string> = {
     'owner-not-configured': 'OWNER_EMAIL is not configured on the server environment.',
     'missing-admin-env': 'Firebase Admin credentials are missing in this deployment.',
-    'missing-firebase-api-key': 'Firebase Web API key is missing for token lookup in this deployment.',
     'firebase-project-mismatch': 'Firebase client and Admin project IDs do not match in this deployment.',
     'admin-credential-error': 'Firebase Admin private key or service account credentials are invalid.',
     'token-project-mismatch': 'The ID token belongs to a different Firebase project than the Admin SDK config.',
@@ -402,9 +401,20 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
   };
 
   useEffect(() => {
-    if (!PRIVATE_MODE || !firebaseAuth) return;
+    if (!PRIVATE_MODE) return;
+
+    if (!firebaseAuth) {
+      setChecking(false);
+      return;
+    }
+
+    // Fail-safe: if auth state callback does not fire, avoid infinite loading UI.
+    const timeout = window.setTimeout(() => {
+      setChecking(false);
+    }, 7000);
 
     const unsubscribe = onAuthStateChanged(firebaseAuth, async (nextUser) => {
+      window.clearTimeout(timeout);
       setUser(nextUser);
       if (!nextUser) {
         setOwnerAllowed(false);
@@ -417,7 +427,10 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
       setChecking(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      window.clearTimeout(timeout);
+      unsubscribe();
+    };
   }, []);
 
   const handleSignIn = async () => {

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAdminAuth } from '@/lib/firebaseAdmin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -40,19 +41,6 @@ const getServerAuthConfig = () => {
   };
 };
 
-const getFirebaseWebApiKey = () =>
-  normalizeEnvValue(process.env.FIREBASE_WEB_API_KEY) ||
-  normalizeEnvValue(process.env.NEXT_PUBLIC_FIREBASE_API_KEY);
-
-const shouldUseIdentityToolkitFallback = (error: unknown) => {
-  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
-
-  return (
-    message.includes('err_require_esm') ||
-    (message.includes('require() of es module') && message.includes('jose'))
-  );
-};
-
 const maskEmail = (email: string) => {
   const [local = '', domain = ''] = email.split('@');
   if (!local || !domain) return null;
@@ -69,16 +57,6 @@ const maskEmail = (email: string) => {
     : domain;
 
   return `${localMasked}@${domainMasked}`;
-};
-
-const classifyTokenLookupError = (errorCode: string) => {
-  const code = errorCode.toUpperCase();
-
-  if (code.includes('TOKEN_EXPIRED')) return 'token-expired';
-  if (code.includes('USER_DISABLED')) return 'token-revoked';
-  if (code.includes('INVALID_ID_TOKEN')) return 'invalid-id-token';
-
-  return 'invalid-token-or-server-error';
 };
 
 const classifyAdminVerifyError = (error: unknown) => {
@@ -107,58 +85,6 @@ const classifyAdminVerifyError = (error: unknown) => {
   }
 
   return { reason: 'invalid-token-or-server-error', code, message };
-};
-
-const lookupEmailFromIdentityToolkit = async (token: string, webApiKey: string) => {
-  const lookupResponse = await fetch(
-    `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(webApiKey)}`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ idToken: token }),
-      cache: 'no-store',
-    },
-  );
-
-  if (!lookupResponse.ok) {
-    const payload = (await lookupResponse.json().catch(() => null)) as
-      | {
-          error?: {
-            message?: string;
-          };
-        }
-      | null;
-    const errorCode = payload?.error?.message ?? 'UNKNOWN_TOKEN_LOOKUP_ERROR';
-    const reason = classifyTokenLookupError(errorCode);
-
-    return {
-      ok: false as const,
-      status: reason === 'invalid-token-or-server-error' ? 401 : 503,
-      body: {
-        allowed: false,
-        ownerConfigured: true,
-        reason,
-        debug: {
-          verifyMethod: 'identity-toolkit',
-          errorCode,
-          errorMessage: `Identity Toolkit lookup failed with HTTP ${lookupResponse.status}`,
-        },
-      },
-    };
-  }
-
-  const payload = (await lookupResponse.json()) as {
-    users?: Array<{
-      email?: string;
-    }>;
-  };
-
-  return {
-    ok: true as const,
-    email: (payload.users?.[0]?.email ?? '').trim().toLowerCase(),
-  };
 };
 
 export async function GET() {
@@ -279,83 +205,53 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let email = '';
-  let verifyMethod: 'firebase-admin' | 'identity-toolkit' = 'firebase-admin';
   try {
-    const { getAdminAuth } = await import('@/lib/firebaseAdmin');
     const adminAuth = getAdminAuth();
     const decoded = await adminAuth.verifyIdToken(token);
-    email = (decoded.email ?? '').trim().toLowerCase();
+    const email = (decoded.email ?? '').trim().toLowerCase();
+
+    if (email !== ownerEmail) {
+      return NextResponse.json(
+        {
+          allowed: false,
+          ownerConfigured: true,
+          reason: 'owner-mismatch',
+          debug: {
+            verifyMethod: 'firebase-admin',
+            signedInEmail: maskEmail(email),
+            expectedOwnerEmail: maskEmail(ownerEmail),
+          },
+        },
+        { status: 403 },
+      );
+    }
+
+    return NextResponse.json(
+      {
+        allowed: true,
+        ownerConfigured: true,
+        debug: {
+          verifyMethod: 'firebase-admin',
+        },
+      },
+      { status: 200 },
+    );
   } catch (error) {
-    if (!shouldUseIdentityToolkitFallback(error)) {
-      const verifyError = classifyAdminVerifyError(error);
-      const status = verifyError.reason === 'invalid-token-or-server-error' ? 401 : 503;
+    const verifyError = classifyAdminVerifyError(error);
+    const status = verifyError.reason === 'invalid-token-or-server-error' ? 401 : 503;
 
-      return NextResponse.json(
-        {
-          allowed: false,
-          ownerConfigured: true,
-          reason: verifyError.reason,
-          debug: {
-            verifyMethod,
-            errorCode: verifyError.code || null,
-            errorMessage: verifyError.message ? verifyError.message.slice(0, 220) : null,
-          },
-        },
-        { status },
-      );
-    }
-
-    const webApiKey = getFirebaseWebApiKey();
-    if (!webApiKey) {
-      return NextResponse.json(
-        {
-          allowed: false,
-          ownerConfigured: true,
-          reason: 'missing-firebase-api-key',
-          debug: {
-            verifyMethod,
-            errorCode: 'FALLBACK_API_KEY_MISSING',
-            errorMessage: 'Set FIREBASE_WEB_API_KEY (or NEXT_PUBLIC_FIREBASE_API_KEY) for Identity Toolkit fallback.',
-          },
-        },
-        { status: 503 },
-      );
-    }
-
-    verifyMethod = 'identity-toolkit';
-    const fallbackResult = await lookupEmailFromIdentityToolkit(token, webApiKey);
-    if (!fallbackResult.ok) {
-      return NextResponse.json(fallbackResult.body, { status: fallbackResult.status });
-    }
-
-    email = fallbackResult.email;
-  }
-
-  if (email !== ownerEmail) {
     return NextResponse.json(
       {
         allowed: false,
         ownerConfigured: true,
-        reason: 'owner-mismatch',
+        reason: verifyError.reason,
         debug: {
-          verifyMethod,
-          signedInEmail: maskEmail(email),
-          expectedOwnerEmail: maskEmail(ownerEmail),
+          verifyMethod: 'firebase-admin',
+          errorCode: verifyError.code || null,
+          errorMessage: verifyError.message ? verifyError.message.slice(0, 220) : null,
         },
       },
-      { status: 403 },
+      { status },
     );
   }
-
-  return NextResponse.json(
-    {
-      allowed: true,
-      ownerConfigured: true,
-      debug: {
-        verifyMethod,
-      },
-    },
-    { status: 200 },
-  );
 }
