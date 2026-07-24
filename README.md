@@ -25,6 +25,7 @@
   - [Free for Personal & Commercial Use](#free-for-personal--commercial-use)
 - [Demos](#demos)
 - [Screenshots](#screenshots)
+  - [Public Demo Mode](#public-demo-mode--app-overview)
 - [Architecture](#architecture)
   - [Data Flow](#data-flow)
   - [Project Structure](#project-structure)
@@ -47,15 +48,11 @@
 
 </details>
 
----
-
 Most QR code services charge a premium for dynamic codes, scan analytics, and unlimited saves — often $20–$100/month for features that should be free.
 
 QR Canvas gives you **everything** for free: unlimited dynamic QR codes, full scan analytics with geo/UTM tracking, the ability to **change a QR code's destination after it's already been printed**, and a self-hosted architecture that keeps your data on your own infrastructure.
 
 No tiers. No paywalls. No limits.
-
----
 
 ## Features
 
@@ -103,30 +100,47 @@ Deploy on your own infrastructure — Vercel, Railway, or any Node.js host. Your
 
 Licensed under GPL v3. Use it for your business, your side project, your client work — no license fees, no attribution required.
 
----
-
-## Demos
-
-> These demos show the v0 version of the app. Check [Screenshots](#screenshots) for the current v2 version which has significant UI and feature improvements.
-
-| | |
-|---|---|
-| **QR Code Generator & Dashboard** | **QR Types Overview** |
-| <video src="https://github.com/user-attachments/assets/55c8da83-7779-4bbc-8c74-5e85b37926cc" controls width="100%"></video> | <video src="https://github.com/user-attachments/assets/ffe4afe3-d6e2-4ee3-8e9c-60f2b49ba52e" controls width="100%"></video> |
-| **App Responsiveness** | **File Upload QR Codes (Image, PDF, MP3)** |
-| <video src="https://github.com/user-attachments/assets/fd49c85d-c47c-480b-b3bc-4ae11fc41467" controls width="100%"></video> | <video src="https://github.com/user-attachments/assets/4f1c56dd-4bf8-4cfb-bb39-38480b98cf26" controls width="100%"></video> |
-
----
-
 ## Screenshots
 
-### App Overview
+### Private Mode - App Overview
 
 | Light | Dark |
 |-------|------|
 | ![QR Canvas builder overview (light)](public/screenshots/qr-canvas-app-overview.jpeg) | ![QR Canvas builder overview (dark)](public/screenshots/qr-canvas-app-overview-dark.jpeg) |
 
 Full workspace with QR type selection, live preview, and styling controls in one view.
+
+### Private Mode - Dashboard & Analytics
+
+| Light | Dark |
+|-------|------|
+| ![QR Canvas dashboard (light)](public/screenshots/dashboard.jpeg) | ![QR Canvas dashboard (dark)](public/screenshots/dashboard-dark.jpeg) |
+
+Personal QR library with unlimited per-code scan tracking and analytics.
+
+### Public Demo Mode — App Overview
+
+| Light | Dark |
+|-------|------|
+| ![QR Canvas public demo mode (light)](public/screenshots/qr-canvas-app-public-demo-mode.jpeg) | ![QR Canvas public demo mode (dark)](public/screenshots/qr-canvas-app-public-demo-mode-dark.jpeg) |
+
+Public demo mode allows anyone to try the QR builder without signing in.
+
+### Public Demo Mode — Dashboard
+
+| Light | Dark |
+|-------|------|
+| ![QR Canvas public demo dashboard (light)](public/screenshots/qr-canvas-app-public-demo-mode-dashboard.jpeg) | ![QR Canvas public demo dashboard (dark)](public/screenshots/qr-canvas-app-public-demo-mode-dashboard-dark.jpeg) |
+
+Dashboard view in public demo mode — browse and manage saved QR codes without authentication.
+
+### Public Demo Mode — File Upload
+
+| Light | Dark |
+|-------|------|
+| ![QR Canvas public demo file upload (light)](public/screenshots/qr-canvas-app-public-demo-mode-file-upload.jpeg) | ![QR Canvas public demo file upload (dark)](public/screenshots/qr-canvas-app-public-demo-mode-file-upload-dark.jpeg) |
+
+File upload disabled for QR types (image, PDF, MP3) in public demo mode.
 
 ### Control Panel
 
@@ -143,26 +157,6 @@ Theme, pattern, color, logo, and scan label controls.
 | ![QR Canvas branded output example](public/screenshots/branded-output-example.jpeg) | ![QR Canvas branded output example (dark)](public/screenshots/branded-output-example-dark.jpeg) |
 
 Final output with logo from logo.dev (or you can upload your own logo) and scan label.
-
-### Dashboard & Analytics
-
-| Light | Dark |
-|-------|------|
-| ![QR Canvas dashboard (light)](public/screenshots/dashboard.jpeg) | ![QR Canvas dashboard (dark)](public/screenshots/dashboard-dark.jpeg) |
-
-Personal QR library with unlimited per-code scan tracking and analytics.
-
-### QR Code Deletion — Full Cleanup
-
-When deleting a QR code, the app now automatically cleans up all associated data:
-
-- **Scan records** — all scan events for that QR are batch-deleted from Firestore
-- **Uploaded assets** — if the QR targets an uploaded file (image, PDF, MP3), the file is removed from Firebase Storage
-- **Route mapping** — the short-code redirect document is deleted from Firestore
-
-This ensures no orphaned data remains in your project.
-
----
 
 ## Architecture
 
@@ -280,8 +274,6 @@ Open http://localhost:8080. The UI works immediately; saving, tracking, and anal
 
 See [Firebase Console Setup](#firebase-console-setup) to configure Auth, Firestore, and the redirect endpoint.
 
----
-
 ## Environment Variables
 
 ### Frontend (`.env.local`)
@@ -308,8 +300,6 @@ See [Firebase Console Setup](#firebase-console-setup) to configure Auth, Firesto
 | `FIREBASE_PRIVATE_KEY` | Service account private key |
 | `SCAN_IP_HASH_SALT` | Salt for IP hashing |
 
----
-
 ## Private Deployment (Owner-Only Access)
 
 To lock the app so only you can use it:
@@ -320,7 +310,7 @@ To lock the app so only you can use it:
 
 With this enabled, the app verifies sign-in tokens on the server and only allows the Google user matching `OWNER_EMAIL`. The first allowed sign-in creates an `app_config/private` Firestore document that permanently locks the project to that Firebase Auth UID.
 
----
+Legacy note: `NEXT_PUBLIC_OWNER_EMAIL` is still accepted as a fallback for older deployments, but `OWNER_EMAIL` is preferred to keep the owner address server-only.
 
 ## Firebase Security Rules
 
@@ -356,8 +346,6 @@ firebase deploy --only storage:rules
 
 Or paste `storage.rules` directly in the Firebase Console.
 
----
-
 ## Scan Tracking Pipeline
 
 1. **Save** a trackable QR code (URL, video, app, image, PDF, MP3) — a short URL (`/r/:shortCode`) and route mapping are created.
@@ -369,8 +357,6 @@ Or paste `storage.rules` directly in the Firebase Console.
 
 Captured scan data: timestamp, visitor cookie ID (persistent 1-year), user agent, referrer, country/region/city (from Vercel headers), hashed IP prefix, and UTM parameters.
 
----
-
 ## NPM Scripts
 
 | Script | Description |
@@ -379,8 +365,6 @@ Captured scan data: timestamp, visitor cookie ID (persistent 1-year), user agent
 | `npm run build` | Production build |
 | `npm run start` | Start Next.js production server |
 | `npm run lint` | Run ESLint |
-
----
 
 ## Troubleshooting
 
@@ -394,8 +378,6 @@ Captured scan data: timestamp, visitor cookie ID (persistent 1-year), user agent
 | Scan redirects fail (prod) | Check `FIREBASE_PRIVATE_KEY` has preserved newlines; deploy with Vercel |
 | Chunk load error in production | The built-in `RuntimeRecovery` component auto-refreshes the page once on chunk load failures |
 
----
-
 ## Performance Considerations
 
 - **Dashboard pagination** — saved QRs are limited to the 300 most recent via Firestore query; consider pagination for heavy usage
@@ -403,8 +385,6 @@ Captured scan data: timestamp, visitor cookie ID (persistent 1-year), user agent
 - **Batch deletion** — scan records are deleted in batches of 400 to stay within Firestore limits; large numbers of scans may take multiple round-trips
 - **Font loading** — scan label fonts load on demand; a curated set of 30 popular fonts is shown immediately, with the full 700+ Google Font catalog fetched only when the font picker is opened
 - **Logo loading** — logos from external sources (logo.dev, favicons) load async; CORS-protected logos gracefully degrade without breaking the QR render
-
----
 
 ## Development Notes
 
