@@ -272,9 +272,19 @@ Open http://localhost:8080. The UI works immediately; saving, tracking, and anal
 
 ### Full Setup (Firebase + Tracking)
 
-See [Firebase Console Setup](#firebase-console-setup) to configure Auth, Firestore, and the redirect endpoint.
+## Firebase Console Setup
 
-## Environment Variables
+### 1. Authentication
+
+1. Go to **Firebase Console → Authentication → Sign-in method** and enable the **Google** provider.
+2. Go to **Authentication → Settings → Authorized domains** and add every domain that will host the app:
+   - Your production domain (e.g., `qr-canvas.com`)
+   - Vercel preview domains (e.g., `qr-canvas-git-branch.vercel.app`)
+   - Vercel production domain (`your-project.vercel.app`)
+   - `localhost` (already present by default)
+   - Without this, OAuth redirects won't work.
+
+> To use Firebase Authentication in a web app, you must whitelist the domains that the Firebase Authentication servers can redirect to after signing in a user.By default, localhost and your Firebase project's hosting domain are whitelisted. You must whitelist the full domain names of any other of your web app's hosts. Note: whitelisting a domain allows for requests from any URL and port of that domain.
 
 ### Frontend (`.env.local`)
 
