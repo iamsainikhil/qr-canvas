@@ -1,22 +1,57 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminAuth } from '@/lib/firebaseAdmin';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const PRIVATE_MODE = process.env.NEXT_PUBLIC_PRIVATE_MODE === 'true';
 
-const getOwnerEmail = () => (process.env.OWNER_EMAIL ?? '').trim().toLowerCase();
+const getOwnerEnv = () => {
+  const privateOwner = (process.env.OWNER_EMAIL ?? '').trim();
+  const legacyOwner = (process.env.NEXT_PUBLIC_OWNER_EMAIL ?? '').trim();
+  const ownerEmail = (privateOwner || legacyOwner).toLowerCase();
+
+  return {
+    ownerEmail,
+    ownerConfigured: Boolean(ownerEmail),
+  };
+};
 
 export async function GET() {
-  return NextResponse.json(
-    {
-      privateMode: PRIVATE_MODE,
-      ownerConfigured: Boolean(getOwnerEmail()),
-    },
-    { status: 200 },
-  );
+  try {
+    const owner = getOwnerEnv();
+
+    return NextResponse.json(
+      {
+        privateMode: PRIVATE_MODE,
+        ownerConfigured: owner.ownerConfigured,
+      },
+      {
+        status: 200,
+        headers: {
+          'Cache-Control': 'no-store',
+        },
+      },
+    );
+  } catch {
+    return NextResponse.json(
+      {
+        privateMode: PRIVATE_MODE,
+        ownerConfigured: false,
+        reason: 'server-error',
+      },
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store',
+        },
+      },
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
-  const ownerEmail = getOwnerEmail();
+  const owner = getOwnerEnv();
+  const ownerEmail = owner.ownerEmail;
 
   if (!PRIVATE_MODE) {
     return NextResponse.json(
@@ -32,7 +67,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         allowed: false,
-        ownerConfigured: false,
+        ownerConfigured: owner.ownerConfigured,
         reason: 'owner-not-configured',
       },
       { status: 503 },
@@ -54,6 +89,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const { getAdminAuth } = await import('@/lib/firebaseAdmin');
     const adminAuth = getAdminAuth();
     const decoded = await adminAuth.verifyIdToken(token);
     const email = (decoded.email ?? '').trim().toLowerCase();
@@ -81,7 +117,7 @@ export async function POST(request: NextRequest) {
       {
         allowed: false,
         ownerConfigured: true,
-        reason: 'invalid-token',
+        reason: 'invalid-token-or-server-error',
       },
       { status: 401 },
     );
