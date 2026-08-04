@@ -247,7 +247,7 @@ function PrivateSignIn({
               )}
             </Button>
             <p className="text-center text-xs text-muted-foreground">
-              Access is restricted to {configuredOwnerEmail || 'the authorized owner account'}.
+              Access is restricted to the authorized owner account.
             </p>
           </CardContent>
         </Card>
