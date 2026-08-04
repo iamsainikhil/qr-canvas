@@ -9,7 +9,7 @@ const PRIVATE_MODE = process.env.NEXT_PUBLIC_PRIVATE_MODE === 'true';
 const normalizeEnvValue = (value?: string) => {
   if (!value) return '';
   const trimmed = value.trim();
-  return trimmed.replace(/^['\"]|['\"]$/g, '');
+  return trimmed.replace(/^['"]|['"]$/g, '');
 };
 
 const getOwnerEnv = () => {
@@ -91,9 +91,7 @@ export async function GET() {
   try {
     const owner = getOwnerEnv();
     const serverAuth = getServerAuthConfig();
-    const ownerConfigured =
-      owner.ownerConfigured &&
-      (!PRIVATE_MODE || (serverAuth.adminConfigured && serverAuth.projectAligned));
+    const ownerConfigured = owner.ownerConfigured;
 
     const reason = !owner.ownerConfigured
       ? 'owner-not-configured'

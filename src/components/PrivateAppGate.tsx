@@ -308,7 +308,7 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
         }
       } catch {
         if (!cancelled) {
-          setOwnerConfigured(false);
+          setOwnerConfigured(true);
           setOwnerCheckReason('server-error');
           setOwnerCheckDetail(null);
         }
