@@ -13,7 +13,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useTheme } from '@/hooks/use-theme';
 import { useToast } from '@/hooks/use-toast';
 import {
-  configuredOwnerEmail,
   privateModeEnabled,
   verifyPrivateOwnerAccess,
 } from '@/lib/privateOwner';
@@ -82,12 +81,9 @@ function formatPrivateReason(reason: string | null) {
   if (!reason) return null;
 
   const reasonMap: Record<string, string> = {
-    'owner-email-not-configured': 'NEXT_PUBLIC_OWNER_EMAIL is not configured for this deployment.',
-    'missing-user-email': 'The signed-in Google account did not provide an email address.',
-    'owner-email-mismatch': 'Signed-in Google email does not match NEXT_PUBLIC_OWNER_EMAIL.',
     'firebase-not-configured': 'Firebase client configuration is missing for this deployment.',
+    'owner-doc-invalid': 'Owner lock document is malformed. Recreate app_config/private with ownerUid.',
     'owner-uid-mismatch': 'This Firebase project is already locked to another owner account.',
-    'owner-doc-email-mismatch': 'The existing owner document email does not match NEXT_PUBLIC_OWNER_EMAIL.',
     'owner-config-read-failed': 'Private owner verification failed while reading Firestore.',
   };
 
@@ -112,7 +108,7 @@ function PrivateAccessSetupError({
           <CardHeader className="text-center">
             <CardTitle className="font-heading text-2xl">Private mode needs setup</CardTitle>
             <CardDescription>
-              Set NEXT_PUBLIC_OWNER_EMAIL and Firebase client env vars.
+              Set Firebase client env vars.
             </CardDescription>
           </CardHeader>
           {reasonText ? (
@@ -247,7 +243,7 @@ function PrivateSignIn({
               )}
             </Button>
             <p className="text-center text-xs text-muted-foreground">
-              Access is restricted to the authorized owner account.
+              Access is restricted to the account of this Firebase project.
             </p>
           </CardContent>
         </Card>
@@ -261,7 +257,7 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
   const [user, setUser] = useState<User | null>(null);
   const [checking, setChecking] = useState(PRIVATE_MODE);
   const [signingIn, setSigningIn] = useState(false);
-  const [ownerConfigured, setOwnerConfigured] = useState(Boolean(configuredOwnerEmail));
+  const [ownerConfigured, setOwnerConfigured] = useState(true);
   const [ownerAllowed, setOwnerAllowed] = useState(false);
   const [ownerCheckReason, setOwnerCheckReason] = useState<string | null>(null);
   const [ownerCheckDetail, setOwnerCheckDetail] = useState<string | null>(null);
