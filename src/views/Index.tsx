@@ -28,6 +28,7 @@ import { getCurrentOwnerUid } from '@/lib/authOwner';
 import { saveQrCodeForOwner, subscribeToOwnerQrCodes } from '@/lib/firestoreQrCodes';
 import { firebaseAuth, storage } from '@/integrations/firebase/client';
 import { onAuthStateChanged } from 'firebase/auth';
+import { privateModeEnabled, verifyPrivateOwnerAccess } from '@/lib/privateOwner';
 
 export type LogoSource = 'none' | 'upload' | 'favicon' | 'logo-dev';
 export type LogoDevLookupMode = 'domain' | 'name' | 'ticker' | 'crypto' | 'isin';
@@ -109,7 +110,7 @@ const deriveLogoDevLookup = (
 };
 
 const Index = () => {
-  const privateMode = process.env.NEXT_PUBLIC_PRIVATE_MODE === 'true';
+  const privateMode = privateModeEnabled;
   const logoDevPublishableKey = process.env.NEXT_PUBLIC_LOGO_DEV_PUBLISHABLE_KEY;
   const { toast } = useToast();
   const { theme, toggleTheme } = useTheme();
@@ -169,15 +170,8 @@ const Index = () => {
       }
 
       try {
-        const token = await user.getIdToken();
-        const response = await fetch('/api/private/owner', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        const data = (await response.json()) as { allowed?: boolean };
-        setCanSavePrivately(Boolean(data.allowed));
+        const result = await verifyPrivateOwnerAccess(user);
+        setCanSavePrivately(result.allowed);
       } catch {
         setCanSavePrivately(false);
       }

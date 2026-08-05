@@ -1,16 +1,9 @@
-import { PropsWithChildren, useEffect, useMemo, useState } from 'react';
-import {
-  User,
-  onAuthStateChanged,
-  signInWithPopup,
-  signOut,
-} from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { PropsWithChildren, useCallback, useEffect, useState } from 'react';
+import { User, onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
 import { Icon } from '@iconify/react';
 
 import {
   firebaseAuth,
-  firestore,
   googleProvider,
   isFirebaseConfigured,
   missingFirebaseClientEnv,
@@ -19,8 +12,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useTheme } from '@/hooks/use-theme';
 import { useToast } from '@/hooks/use-toast';
+import {
+  privateModeEnabled,
+  verifyPrivateOwnerAccess,
+} from '@/lib/privateOwner';
 
-const PRIVATE_MODE = process.env.NEXT_PUBLIC_PRIVATE_MODE === 'true';
+const PRIVATE_MODE = privateModeEnabled;
 const GITHUB_REPO = 'https://github.com/iamsainikhil/qr-canvas';
 
 function GateHeader() {
@@ -84,18 +81,10 @@ function formatPrivateReason(reason: string | null) {
   if (!reason) return null;
 
   const reasonMap: Record<string, string> = {
-    'owner-not-configured': 'OWNER_EMAIL is not configured on the server environment.',
-    'missing-admin-env': 'Firebase Admin credentials are missing in this deployment.',
-    'firebase-project-mismatch': 'Firebase client and Admin project IDs do not match in this deployment.',
-    'admin-credential-error': 'Firebase Admin private key or service account credentials are invalid.',
-    'token-project-mismatch': 'The ID token belongs to a different Firebase project than the Admin SDK config.',
-    'missing-token': 'No auth token was provided to the owner check endpoint.',
-    'owner-mismatch': 'Signed-in Google email does not match OWNER_EMAIL.',
-    'invalid-id-token': 'Firebase rejected the ID token as invalid for this deployment.',
-    'token-expired': 'Firebase ID token expired. Sign out and sign in again.',
-    'token-revoked': 'Firebase ID token was revoked. Sign out and sign in again.',
-    'invalid-token-or-server-error': 'Token verification failed or the server returned an unexpected auth error.',
-    'server-error': 'Server failed while checking private mode configuration.',
+    'firebase-not-configured': 'Firebase client configuration is missing for this deployment.',
+    'owner-doc-invalid': 'Owner lock document is malformed. Recreate app_config/private with ownerUid.',
+    'owner-uid-mismatch': 'This Firebase project is already locked to another owner account.',
+    'owner-config-read-failed': 'Private owner verification failed while reading Firestore.',
   };
 
   return reasonMap[reason] ?? `Private mode check failed: ${reason}`;
@@ -119,7 +108,7 @@ function PrivateAccessSetupError({
           <CardHeader className="text-center">
             <CardTitle className="font-heading text-2xl">Private mode needs setup</CardTitle>
             <CardDescription>
-              Set OWNER_EMAIL and Firebase client env vars.
+              Set Firebase client env vars.
             </CardDescription>
           </CardHeader>
           {reasonText ? (
@@ -254,7 +243,7 @@ function PrivateSignIn({
               )}
             </Button>
             <p className="text-center text-xs text-muted-foreground">
-              Access is restricted to the authorized owner account.
+              Access is restricted to the account of this Firebase project.
             </p>
           </CardContent>
         </Card>
@@ -274,131 +263,23 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
   const [ownerCheckDetail, setOwnerCheckDetail] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const isOwner = useMemo(() => ownerAllowed, [ownerAllowed]);
+  const verifyOwnerAccess = useCallback(async (nextUser: User) => {
+    const result = await verifyPrivateOwnerAccess(nextUser);
+    setOwnerConfigured(result.ownerConfigured);
+    setOwnerAllowed(result.allowed);
+    setOwnerCheckReason(result.reason);
+    setOwnerCheckDetail(result.detail);
 
-  useEffect(() => {
-    if (!PRIVATE_MODE) return;
-
-    let cancelled = false;
-
-    const loadOwnerConfig = async () => {
-      try {
-        const response = await fetch('/api/private/owner', {
-          method: 'GET',
-          cache: 'no-store',
-        });
-        const data = (await response.json()) as {
-          ownerConfigured?: boolean;
-          reason?: string;
-          debug?: {
-            errorCode?: string | null;
-            errorMessage?: string | null;
-            adminProjectId?: string | null;
-            clientProjectId?: string | null;
-          };
-        };
-        if (!cancelled) {
-          setOwnerConfigured(Boolean(data.ownerConfigured));
-          setOwnerCheckReason(data.reason ?? null);
-          const configDebug =
-            data.reason === 'firebase-project-mismatch'
-              ? `adminProjectId=${data.debug?.adminProjectId ?? 'n/a'} clientProjectId=${data.debug?.clientProjectId ?? 'n/a'}`
-              : null;
-          setOwnerCheckDetail(configDebug);
-        }
-      } catch {
-        if (!cancelled) {
-          setOwnerConfigured(false);
-          setOwnerCheckReason('server-error');
-          setOwnerCheckDetail(null);
-        }
-      }
-    };
-
-    void loadOwnerConfig();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!user || !firestore) return;
-
-    if (!isOwner) return;
-
-    let cancelled = false;
-
-    const ensureOwnerConfig = async () => {
-      const ownerDocRef = doc(firestore, 'app_config', 'private');
-      const ownerDoc = await getDoc(ownerDocRef);
-
-      if (!ownerDoc.exists()) {
-        await setDoc(ownerDocRef, {
-          ownerUid: user.uid,
-          ownerEmail: (user.email ?? '').toLowerCase(),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        });
-        return;
-      }
-
-      const ownerUid = ownerDoc.data()?.ownerUid as string | undefined;
-      if (ownerUid && ownerUid !== user.uid && !cancelled) {
-        await signOut(firebaseAuth);
-        toast({
-          title: 'Owner mismatch',
-          description: 'This Firebase project is already locked to another owner uid.',
-          variant: 'destructive',
-        });
-      }
-    };
-
-    void ensureOwnerConfig();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isOwner, user, toast]);
-
-  const verifyOwnerAccess = async (nextUser: User) => {
-    try {
-      const token = await nextUser.getIdToken();
-      const response = await fetch('/api/private/owner', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+    if (!result.allowed && result.reason === 'owner-uid-mismatch') {
+      await signOut(firebaseAuth);
+      setUser(null);
+      toast({
+        title: 'Owner mismatch',
+        description: 'This Firebase project is already locked to another owner account.',
+        variant: 'destructive',
       });
-      const data = (await response.json()) as {
-        allowed?: boolean;
-        ownerConfigured?: boolean;
-        reason?: string;
-        debug?: {
-          errorCode?: string | null;
-          errorMessage?: string | null;
-          adminProjectId?: string | null;
-          clientProjectId?: string | null;
-        };
-      };
-
-      setOwnerConfigured(Boolean(data.ownerConfigured));
-      setOwnerAllowed(Boolean(data.allowed));
-      setOwnerCheckReason(data.reason ?? null);
-      const verifyDebug = [data.debug?.errorCode, data.debug?.errorMessage]
-        .filter(Boolean)
-        .join(' | ');
-      const configDebug =
-        data.reason === 'firebase-project-mismatch'
-          ? `adminProjectId=${data.debug?.adminProjectId ?? 'n/a'} clientProjectId=${data.debug?.clientProjectId ?? 'n/a'}`
-          : null;
-      setOwnerCheckDetail(configDebug ?? (verifyDebug || null));
-    } catch {
-      setOwnerAllowed(false);
-      setOwnerCheckReason('server-error');
-      setOwnerCheckDetail(null);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     if (!PRIVATE_MODE) return;
@@ -408,7 +289,6 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
       return;
     }
 
-    // Fail-safe: if auth state callback does not fire, avoid infinite loading UI.
     const timeout = window.setTimeout(() => {
       setChecking(false);
     }, 7000);
@@ -416,8 +296,11 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
     const unsubscribe = onAuthStateChanged(firebaseAuth, async (nextUser) => {
       window.clearTimeout(timeout);
       setUser(nextUser);
+
       if (!nextUser) {
         setOwnerAllowed(false);
+        setOwnerCheckReason(null);
+        setOwnerCheckDetail(null);
         setChecking(false);
         return;
       }
@@ -431,7 +314,7 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
       window.clearTimeout(timeout);
       unsubscribe();
     };
-  }, []);
+  }, [verifyOwnerAccess]);
 
   const handleSignIn = async () => {
     if (!firebaseAuth || !googleProvider) {
@@ -445,7 +328,10 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
 
     setSigningIn(true);
     try {
-      await signInWithPopup(firebaseAuth, googleProvider);
+      const result = await signInWithPopup(firebaseAuth, googleProvider);
+      setUser(result.user);
+      setChecking(true);
+      await verifyOwnerAccess(result.user);
     } catch (error) {
       const description = error instanceof Error ? error.message : 'Google sign-in failed';
       toast({
@@ -454,6 +340,7 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
         variant: 'destructive',
       });
     } finally {
+      setChecking(false);
       setSigningIn(false);
     }
   };
@@ -492,7 +379,7 @@ export function PrivateAppGate({ children }: PropsWithChildren) {
     return <PrivateSignIn signingIn={signingIn} onSignIn={handleSignIn} />;
   }
 
-  if (!isOwner) {
+  if (!ownerAllowed) {
     return <AccessDenied onSignOut={handleSignOut} reason={ownerCheckReason} detail={ownerCheckDetail} />;
   }
 
