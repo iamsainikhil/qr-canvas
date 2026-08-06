@@ -32,7 +32,6 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { SavedQRCode, qrTypeLabel } from '@/lib/savedQrCodes';
-import { getContrastingTextColor } from '@/lib/utils';
 import { defaultScanLabelStyle } from '@/components/scanLabelStyle';
 import { resolveLogoStyleOptions } from '@/components/logoStyle';
 import { ensureGoogleFontLoaded } from '@/lib/fontRegistry';
@@ -303,7 +302,7 @@ function SavedQrStyledPreview({ item, size = 280 }: { item: SavedQRCode; size?: 
           <p
             className="text-center leading-tight"
             style={{
-              color: getContrastingTextColor(item.style.bgColor || '#FFFFFF'),
+              color: scanLabelStyle.color,
               fontSize: `${labelFontSize}px`,
               fontWeight: scanLabelStyle.fontWeight,
               fontFamily: `"${resolvedScanFontFamily}", Satoshi, system-ui, -apple-system, sans-serif`,
@@ -812,7 +811,7 @@ export default function Dashboard() {
     }
 
     if (includeLabel) {
-      ctx.fillStyle = getContrastingTextColor(item.style.bgColor || '#FFFFFF');
+      ctx.fillStyle = scanLabelStyle.color;
       ctx.font = `${scanLabelStyle.fontWeight} ${fontSize}px "${scanLabelStyle.fontFamily}", Satoshi, system-ui, -apple-system, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -972,7 +971,7 @@ export default function Dashboard() {
       }
 
       if (includeLabel) {
-        ctx.fillStyle = getContrastingTextColor(item.style.bgColor || '#FFFFFF');
+        ctx.fillStyle = scanLabelStyle.color;
         ctx.font = `${scanLabelStyle.fontWeight} ${fontSize}px "${scanLabelStyle.fontFamily}", Satoshi, system-ui, -apple-system, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';

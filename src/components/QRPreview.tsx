@@ -2,7 +2,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@iconify/react';
 import { useToast } from '@/hooks/use-toast';
-import { cn, getContrastingTextColor } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { useGoogleFont } from '@/hooks/use-google-font';
 import { FrameStyle } from './QRStyleTabs';
 import { BodyShape } from './BodyShapeSelector';
@@ -316,7 +316,7 @@ export function QRPreview({
       if (includeLabel && trimmedText) {
         await ensureGoogleFontLoaded(scanLabelStyle.fontFamily, [scanLabelStyle.fontWeight]);
         const labelText = scanLabelStyle.uppercase ? trimmedText.toUpperCase() : trimmedText;
-        ctx.fillStyle = getContrastingTextColor(bgColor || '#FFFFFF');
+        ctx.fillStyle = scanLabelStyle.color;
         ctx.font = `${scanLabelStyle.fontWeight} ${fontSize}px "${scanLabelStyle.fontFamily}", Satoshi, system-ui, -apple-system, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -454,7 +454,7 @@ export function QRPreview({
             <p
               className="text-center leading-tight"
               style={{
-                color: getContrastingTextColor(bgColor || '#FFFFFF'),
+                color: scanLabelStyle.color,
                 fontSize: `${scanLabelStyle.fontSize}px`,
                 fontWeight: scanLabelStyle.fontWeight,
                 fontFamily: `"${resolvedScanFontFamily}", Satoshi, system-ui, -apple-system, sans-serif`,

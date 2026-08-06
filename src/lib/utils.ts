@@ -21,8 +21,9 @@ export const getContrastingTextColor = (bgColor: string): string =>
   isLightColor(bgColor) ? '#171717' : '#FFFFFF';
 
 export const normalizeHex = (value: string): string => {
-  const formatted = value.startsWith('#') ? value : `#${value}`;
-  return formatted.toUpperCase();
+  const uppercase = value.trim().toUpperCase();
+  const hex = uppercase.replace(/^#/, '').replace(/[^0-9A-F]/g, '').slice(0, 6);
+  return `#${hex}`;
 };
 
 export const getImageSrc = (image: string | { src: string }): string =>
