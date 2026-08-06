@@ -215,6 +215,15 @@ function ColorPickerPopover({
                       onColorChange(value);
                     }
                   }}
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    const pasted = e.clipboardData.getData('text');
+                    const value = pasted.toUpperCase();
+                    onHexInputChange(value);
+                    if (isValidHex(value)) {
+                      onColorChange(value);
+                    }
+                  }}
                   placeholder="#000000"
                   className="font-mono uppercase h-10 rounded-xl"
                   maxLength={7}
@@ -271,6 +280,11 @@ export function InlineColorPickerField({
       <Input
         value={inputValue}
         onChange={(e) => onInputChange(e.target.value.toUpperCase())}
+        onPaste={(e) => {
+          e.preventDefault();
+          const pasted = e.clipboardData.getData('text');
+          onInputChange(pasted.toUpperCase());
+        }}
         placeholder={inputPlaceholder || '#000000'}
         className="text-xs h-10 font-mono uppercase flex-1 rounded-xl"
         maxLength={7}
