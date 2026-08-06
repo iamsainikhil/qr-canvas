@@ -181,14 +181,28 @@ const Index = () => {
   }, [privateMode]);
 
   useEffect(() => {
-    const ownerUid = getCurrentOwnerUid();
-    if (!ownerUid) return;
+    if (!firebaseAuth) return;
 
-    const unsubscribe = subscribeToOwnerQrCodes(ownerUid, (items) => {
-      setSavedCount(items.length);
+    let unsubscribeQrs: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(firebaseAuth, (user) => {
+      unsubscribeQrs?.();
+      unsubscribeQrs = null;
+
+      if (!user) {
+        setSavedCount(0);
+        return;
+      }
+
+      unsubscribeQrs = subscribeToOwnerQrCodes(user.uid, (items) => {
+        setSavedCount(items.length);
+      });
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      unsubscribeQrs?.();
+    };
   }, []);
 
   // Generate QR value based on type
