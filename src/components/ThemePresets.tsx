@@ -1,5 +1,5 @@
 import { cn, isValidHex, normalizeHex, getImageSrc } from '@/lib/utils';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -9,6 +9,12 @@ import themePaperImg from '@/assets/theme-paper.webp';
 import themeMidnightImg from '@/assets/theme-midnight.webp';
 import themePastelImg from '@/assets/theme-pastel.webp';
 import type { StaticImageData } from 'next/image';
+import { getCurrentOwnerUid } from '@/lib/authOwner';
+import {
+  loadCustomThemesForOwner,
+  saveCustomThemeForOwner,
+  deleteCustomThemeForOwner,
+} from '@/lib/firestoreQrCodes';
 
 const buildAutoGradientCss = (backgroundColor: string, foregroundColor: string) =>
   `linear-gradient(135deg, ${backgroundColor} 0%, ${foregroundColor} 100%)`;
@@ -23,6 +29,7 @@ export interface ThemePreset {
   bgGradient?: string;
   image: string | StaticImageData;
   isCustom?: boolean;
+  createdAt?: string;
 }
 
 export const defaultThemePresets: ThemePreset[] = [
@@ -108,6 +115,8 @@ interface ThemePresetsProps {
 
 export function ThemePresets({ selectedTheme, onThemeChange, onThemeUnselect, currentFgColor, currentBgColor, currentPatternColor, currentBgGradient }: ThemePresetsProps) {
   const [customThemes, setCustomThemes] = useState<ThemePreset[]>([]);
+  const [isLoadingThemes, setIsLoadingThemes] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [themeName, setThemeName] = useState('');
   const [editBgColor, setEditBgColor] = useState('#FFFFFF');
@@ -119,6 +128,17 @@ export function ThemePresets({ selectedTheme, onThemeChange, onThemeUnselect, cu
   const [editBgGradientInput, setEditBgGradientInput] = useState('');
   const [useGradient, setUseGradient] = useState(false);
   const [lastAutoGradientInput, setLastAutoGradientInput] = useState<string | null>(null);
+
+  const ownerUid = getCurrentOwnerUid();
+
+  useEffect(() => {
+    if (!ownerUid) return;
+    setIsLoadingThemes(true);
+    loadCustomThemesForOwner(ownerUid)
+      .then((themes) => setCustomThemes(themes))
+      .catch(() => {/* silent — user may not be signed in yet */})
+      .finally(() => setIsLoadingThemes(false));
+  }, [ownerUid]);
 
   const openNewThemeDialog = () => {
     setEditBgColor(currentBgColor);
@@ -162,24 +182,22 @@ export function ThemePresets({ selectedTheme, onThemeChange, onThemeUnselect, cu
 
   const allThemes = [...defaultThemePresets, ...customThemes];
 
-  const handleSaveTheme = () => {
+  const handleSaveTheme = async () => {
     if (!themeName.trim()) return;
-    
+
     const bgGradientToSave = useGradient && editBgGradientInput.trim() ? editBgGradientInput.trim() : undefined;
-    
-    // Build preview thumbnail
+
     let previewImage = '';
     if (bgGradientToSave) {
-      // For gradients, use a simple approach: generate SVG with background style
       const encodedGradient = bgGradientToSave.replace(/"/g, "'");
       previewImage = `data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22 style=%22background:${encodeURIComponent(encodedGradient)}%22%3E%3C/svg%3E`;
     } else {
       previewImage = `data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22%3E%3Crect width=%2240%22 height=%2240%22 fill=%22${encodeURIComponent(editBgColor)}%22 /%3E%3Crect x=%228%22 y=%228%22 width=%228%22 height=%228%22 fill=%22${encodeURIComponent(editPatternColor)}%22 /%3E%3Crect x=%2224%22 y=%228%22 width=%228%22 height=%228%22 fill=%22${encodeURIComponent(editPatternColor)}%22 /%3E%3Crect x=%228%22 y=%2224%22 width=%228%22 height=%228%22 fill=%22${encodeURIComponent(editPatternColor)}%22 /%3E%3Crect x=%2218%22 y=%2218%22 width=%224%22 height=%224%22 fill=%22${encodeURIComponent(editFgColor)}%22 /%3E%3C/svg%3E`;
     }
-    
+
     const newTheme: ThemePreset = {
       id: `custom-${Date.now()}`,
-      name: themeName,
+      name: themeName.trim(),
       description: 'Custom theme',
       fgColor: editFgColor,
       bgColor: editBgColor,
@@ -187,18 +205,29 @@ export function ThemePresets({ selectedTheme, onThemeChange, onThemeUnselect, cu
       bgGradient: bgGradientToSave,
       image: previewImage,
       isCustom: true,
+      createdAt: new Date().toISOString(),
     };
-    
-    const updated = [...customThemes, newTheme];
-    setCustomThemes(updated);
-    setThemeName('');
-    setShowSaveDialog(false);
-    onThemeChange(newTheme);
+
+    setIsSaving(true);
+    try {
+      if (ownerUid) {
+        await saveCustomThemeForOwner(ownerUid, newTheme);
+      }
+      const updated = [...customThemes, newTheme];
+      setCustomThemes(updated);
+      setThemeName('');
+      setShowSaveDialog(false);
+      onThemeChange(newTheme);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleDeleteCustomTheme = (id: string) => {
-    const updated = customThemes.filter(t => t.id !== id);
-    setCustomThemes(updated);
+  const handleDeleteCustomTheme = async (id: string) => {
+    if (ownerUid) {
+      await deleteCustomThemeForOwner(ownerUid, id).catch(() => {/* ignore */});
+    }
+    setCustomThemes((prev) => prev.filter((t) => t.id !== id));
   };
 
   return (
@@ -242,120 +271,170 @@ export function ThemePresets({ selectedTheme, onThemeChange, onThemeUnselect, cu
         
         <button
           onClick={openNewThemeDialog}
-          className="flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-200 border border-border bg-card hover:bg-muted/50"
+          disabled={isLoadingThemes}
+          className="flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-200 border border-border bg-card hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed"
           title="Create a new custom theme"
         >
-          <Icon icon="lucide:plus" width={20} height={20} className="text-muted-foreground" />
+          {isLoadingThemes ? (
+            <Icon icon="lucide:loader-circle" width={20} height={20} className="text-muted-foreground animate-spin" />
+          ) : (
+            <Icon icon="lucide:plus" width={20} height={20} className="text-muted-foreground" />
+          )}
           <p className="text-xs font-medium text-foreground">New Theme</p>
         </button>
       </div>
 
       {showSaveDialog && (
-        <div className="border border-border rounded-xl p-3 bg-card space-y-3">
-          <p className="text-xs font-semibold text-foreground">New Theme</p>
-
-          {/* Color editors */}
-          <div className="space-y-3">
-            <InlineColorPickerField
-              label="Background"
-              color={editBgColor}
-              inputValue={editBgColorInput}
-              onColorChange={(color) => {
-                setEditBgColor(color);
-                setEditBgColorInput(color);
-                if (useGradient) syncGradientTextarea(color, editFgColor);
-              }}
-              onInputChange={(value) => handleHexInput(value, setEditBgColor, setEditBgColorInput, (nextColor) => {
-                if (useGradient) syncGradientTextarea(nextColor, editFgColor);
-              })}
-              swatches={bgSwatches}
-            />
-            <InlineColorPickerField
-              label="Foreground"
-              color={editFgColor}
-              inputValue={editFgColorInput}
-              onColorChange={(color) => {
-                setEditFgColor(color);
-                setEditFgColorInput(color);
-                if (useGradient) syncGradientTextarea(editBgColor, color);
-              }}
-              onInputChange={(value) => handleHexInput(value, setEditFgColor, setEditFgColorInput, (nextColor) => {
-                if (useGradient) syncGradientTextarea(editBgColor, nextColor);
-              })}
-              swatches={fgSwatches}
-            />
-            <InlineColorPickerField
-              label="Pattern"
-              color={editPatternColor}
-              inputValue={editPatternColorInput}
-              onColorChange={(color) => {
-                setEditPatternColor(color);
-                setEditPatternColorInput(color);
-              }}
-              onInputChange={(value) => handleHexInput(value, setEditPatternColor, setEditPatternColorInput)}
-              swatches={fgSwatches}
-            />
-          </div>
-
-          {/* Gradient toggle and editor */}
-          <div className="space-y-2 border-t border-border pt-2">
+        <div className="rounded-2xl border border-border bg-card overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
             <div className="flex items-center gap-2">
-              <Checkbox
-                checked={useGradient}
-                onCheckedChange={(checked) => {
-                  const nextUseGradient = checked === true;
-                  setUseGradient(nextUseGradient);
-                  if (nextUseGradient) {
-                    syncGradientTextarea(editBgColor, editFgColor, true);
-                  }
-                }}
-                className="cursor-pointer"
-                id="use-gradient"
-              />
-              <label htmlFor="use-gradient" className="text-xs font-medium text-foreground cursor-pointer">
-                Use gradient background
-              </label>
+              <Icon icon="lucide:palette" width={14} height={14} className="text-muted-foreground" />
+              <p className="text-xs font-semibold text-foreground">New Custom Theme</p>
             </div>
-            {useGradient && (
-              <div className="flex flex-col gap-1">
-                <span className="text-xs text-muted-foreground">Gradient CSS</span>
-                <textarea
-                  value={editBgGradientInput}
-                  onChange={(e) => setEditBgGradientInput(e.target.value)}
-                  placeholder="e.g., linear-gradient(135deg, #ff6b35 0%, #fdb833 100%)"
-                  className="w-full p-2 text-xs rounded-lg border border-border bg-background font-mono resize-none h-16 focus:outline-none focus:ring-2 focus:ring-ring input-field"
-                />
-              </div>
-            )}
+            <button
+              onClick={() => setShowSaveDialog(false)}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              title="Cancel"
+            >
+              <Icon icon="lucide:x" width={14} height={14} />
+            </button>
           </div>
 
-          {/* Name + actions */}
-          <div className="space-y-2">
-            <Input
-              value={themeName}
-              onChange={(e) => setThemeName(e.target.value)}
-              placeholder="Theme name…"
-              className="text-sm"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSaveTheme();
-                if (e.key === 'Escape') setShowSaveDialog(false);
-              }}
-              autoFocus
-            />
-            <div className="flex gap-2">
+          <div className="p-4 space-y-4">
+            {/* Theme name input */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Theme name</label>
+              <Input
+                value={themeName}
+                onChange={(e) => setThemeName(e.target.value)}
+                placeholder="e.g. Forest, Neon, Brand…"
+                className="h-9 text-sm bg-background border-border focus-visible:ring-1 focus-visible:ring-ring"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSaveTheme();
+                  if (e.key === 'Escape') setShowSaveDialog(false);
+                }}
+                autoFocus
+              />
+            </div>
+
+            {/* Color editors */}
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Colors</p>
+              <div className="rounded-xl border border-border bg-background/50 divide-y divide-border">
+                <div className="px-3 py-2.5">
+                  <InlineColorPickerField
+                    label="Background"
+                    color={editBgColor}
+                    inputValue={editBgColorInput}
+                    onColorChange={(color) => {
+                      setEditBgColor(color);
+                      setEditBgColorInput(color);
+                      if (useGradient) syncGradientTextarea(color, editFgColor);
+                    }}
+                    onInputChange={(value) => handleHexInput(value, setEditBgColor, setEditBgColorInput, (nextColor) => {
+                      if (useGradient) syncGradientTextarea(nextColor, editFgColor);
+                    })}
+                    swatches={bgSwatches}
+                  />
+                </div>
+                <div className="px-3 py-2.5">
+                  <InlineColorPickerField
+                    label="Foreground"
+                    color={editFgColor}
+                    inputValue={editFgColorInput}
+                    onColorChange={(color) => {
+                      setEditFgColor(color);
+                      setEditFgColorInput(color);
+                      if (useGradient) syncGradientTextarea(editBgColor, color);
+                    }}
+                    onInputChange={(value) => handleHexInput(value, setEditFgColor, setEditFgColorInput, (nextColor) => {
+                      if (useGradient) syncGradientTextarea(editBgColor, nextColor);
+                    })}
+                    swatches={fgSwatches}
+                  />
+                </div>
+                <div className="px-3 py-2.5">
+                  <InlineColorPickerField
+                    label="Pattern"
+                    color={editPatternColor}
+                    inputValue={editPatternColorInput}
+                    onColorChange={(color) => {
+                      setEditPatternColor(color);
+                      setEditPatternColorInput(color);
+                    }}
+                    onInputChange={(value) => handleHexInput(value, setEditPatternColor, setEditPatternColorInput)}
+                    swatches={fgSwatches}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Gradient section */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={useGradient}
+                  onCheckedChange={(checked) => {
+                    const nextUseGradient = checked === true;
+                    setUseGradient(nextUseGradient);
+                    if (nextUseGradient) {
+                      syncGradientTextarea(editBgColor, editFgColor, true);
+                    }
+                  }}
+                  className="cursor-pointer"
+                  id="use-gradient"
+                />
+                <label htmlFor="use-gradient" className="text-xs font-medium text-foreground cursor-pointer select-none">
+                  Use gradient background
+                </label>
+              </div>
+              {useGradient && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Gradient CSS</label>
+                  <textarea
+                    value={editBgGradientInput}
+                    onChange={(e) => setEditBgGradientInput(e.target.value)}
+                    placeholder="e.g., linear-gradient(135deg, #ff6b35 0%, #fdb833 100%)"
+                    className="w-full px-3 py-2.5 text-xs rounded-xl border border-border bg-background font-mono resize-none h-20 focus:outline-none focus:ring-1 focus:ring-ring transition-shadow text-foreground placeholder:text-muted-foreground"
+                    spellCheck={false}
+                  />
+                  {editBgGradientInput.trim() && (
+                    <div
+                      className="h-6 w-full rounded-lg border border-border"
+                      style={{ background: editBgGradientInput.trim() }}
+                      title="Gradient preview"
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2 pt-1">
               <Button
                 onClick={handleSaveTheme}
-                disabled={!themeName.trim()}
+                disabled={!themeName.trim() || isSaving}
                 size="sm"
-                className="flex-1"
+                className="flex-1 h-9"
               >
-                Save Theme
+                {isSaving ? (
+                  <span className="flex items-center gap-1.5">
+                    <Icon icon="lucide:loader-circle" width={13} height={13} className="animate-spin" />
+                    Saving…
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5">
+                    <Icon icon="lucide:save" width={13} height={13} />
+                    Save Theme
+                  </span>
+                )}
               </Button>
               <Button
                 onClick={() => setShowSaveDialog(false)}
                 variant="outline"
                 size="sm"
-                className="flex-1"
+                className="h-9 px-4"
               >
                 Cancel
               </Button>
