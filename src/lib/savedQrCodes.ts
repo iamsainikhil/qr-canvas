@@ -87,7 +87,8 @@ export const generateShortCode = () => {
 };
 
 export const buildTrackingUrl = (origin: string, shortCode: string) => {
-  return `${origin.replace(/\/$/, '')}/r/${shortCode}`;
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+  return `${origin.replace(/\/$/, '')}${basePath}/r/${shortCode}`;
 };
 
 export const createSavedQrCodeDocument = ({
