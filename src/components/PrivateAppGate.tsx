@@ -25,7 +25,7 @@ function GateHeader() {
   return (
     <div className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between border-b border-border bg-card px-5 py-4">
       <a href="/" className="flex items-center gap-3">
-        <img src="/logo.png" alt="QR Canvas" className="w-12 h-12 rounded-xl" />
+        <img src={`${process.env.NEXT_PUBLIC_BASE_PATH}/logo.png`} alt="QR Canvas" className="w-12 h-12 rounded-xl" />
         <div>
           <h1 className="font-heading text-xl font-bold text-foreground">QR Canvas</h1>
           <p className="text-sm text-muted-foreground">Generate dynamic QR codes with scan tracking</p>

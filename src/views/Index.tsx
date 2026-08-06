@@ -456,7 +456,7 @@ const Index = () => {
         <div className="mx-auto w-full max-w-7xl px-3 pt-3 sm:px-6 lg:px-8 xl:pt-6">
           <header className="flex flex-col gap-4 rounded-2xl border border-border bg-card px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div className="flex min-w-0 items-center gap-3">
-              <img src="/logo.png" alt="QR Canvas" className="h-11 w-11 flex-shrink-0 rounded-xl sm:h-12 sm:w-12" />
+              <img src={`${process.env.NEXT_PUBLIC_BASE_PATH}/logo.png`} alt="QR Canvas" className="h-11 w-11 flex-shrink-0 rounded-xl sm:h-12 sm:w-12" />
               <div className="min-w-0">
                 <h1 className="truncate font-heading text-xl font-bold text-foreground">QR Canvas</h1>
                 {privateMode && canSavePrivately ? (
