@@ -24,6 +24,7 @@ import {
   isTrackableQrType,
 } from '@/lib/savedQrCodes';
 import type { QRType } from '@/components/QRTypeSelector';
+import type { ThemePreset } from '@/components/ThemePresets';
 
 export interface ScanEvent {
   id: string;
@@ -269,4 +270,34 @@ export const fetchQrScanEvents = async (
   const scansQuery = query(scansRef, orderBy('timestamp', 'desc'), limit(maxCount));
   const snapshot = await getDocs(scansQuery);
   return snapshot.docs.map((d) => d.data() as ScanEvent);
+};
+
+// ─── Custom Themes ────────────────────────────────────────────────────────────
+
+const userCustomThemesCollectionSafe = (ownerUid: string) =>
+  collection(requireFirestore(), 'users', ownerUid, 'customThemes');
+
+const userCustomThemeDocSafe = (ownerUid: string, themeId: string) =>
+  doc(requireFirestore(), 'users', ownerUid, 'customThemes', themeId);
+
+export const loadCustomThemesForOwner = async (ownerUid: string): Promise<ThemePreset[]> => {
+  const snapshot = await getDocs(
+    query(userCustomThemesCollectionSafe(ownerUid), orderBy('createdAt', 'asc')),
+  );
+  return snapshot.docs.map((d) => d.data() as ThemePreset);
+};
+
+export const saveCustomThemeForOwner = async (ownerUid: string, theme: ThemePreset): Promise<void> => {
+  const docRef = userCustomThemeDocSafe(ownerUid, theme.id);
+  const sanitized = {
+    ...theme,
+    patternColor: theme.patternColor ?? null,
+    bgGradient: theme.bgGradient ?? null,
+    createdAt: theme.createdAt ?? new Date().toISOString(),
+  };
+  await setDoc(docRef, sanitized);
+};
+
+export const deleteCustomThemeForOwner = async (ownerUid: string, themeId: string): Promise<void> => {
+  await deleteDoc(userCustomThemeDocSafe(ownerUid, themeId));
 };

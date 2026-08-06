@@ -44,6 +44,10 @@ service cloud.firestore {
           allow delete: if isOwner() && uid == request.auth.uid;
         }
       }
+
+      match /customThemes/{themeId} {
+        allow read, create, update, delete: if isOwner() && uid == request.auth.uid;
+      }
     }
 
     match /qr_routes/{shortCode} {
