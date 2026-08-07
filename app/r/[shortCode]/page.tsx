@@ -20,6 +20,6 @@ export default function ShortCodePage({
     if (value != null) qs.set(key, value);
   }
 
-  qs.set('shortCode', params.shortCode);
-  redirect(`/api/redirect?${qs.toString()}`);
+  const query = qs.toString();
+  redirect(`/api/r/${encodeURIComponent(params.shortCode)}${query ? `?${query}` : ''}`);
 }
