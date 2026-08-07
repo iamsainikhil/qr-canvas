@@ -120,7 +120,7 @@ export async function GET(
       const destUrl = new URL(destination);
       const requestHost = (request.headers.get('x-forwarded-host') || request.headers.get('host') || '').split(':')[0];
       const isSameHost = destUrl.hostname === requestHost;
-      const selfReferralPattern = new RegExp(`/r/${encodeURIComponent(shortCode)}(?:[/?#]|$)`);
+      const selfReferralPattern = new RegExp(`/api/r/${encodeURIComponent(shortCode)}(?:[/?#]|$)`);
       if (isSameHost && selfReferralPattern.test(destUrl.pathname)) {
         return redirectWithNoStore(buildErrorRedirect(request, 'error'));
       }

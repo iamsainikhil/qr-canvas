@@ -140,7 +140,7 @@ const assertNotSelfReferential = (value: string) => {
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
   const origin = window.location.origin.replace(/\/$/, '');
   const lower = value.trim().toLowerCase();
-  const selfPatterns = [`${origin}${basePath}/r/`, `${origin}/r/`];
+  const selfPatterns = [`${origin}${basePath}/api/r/`, `${origin}/api/r/`];
   if (selfPatterns.some((p) => lower.startsWith(p.toLowerCase()))) {
     throw new Error('QR destination cannot be a QR Canvas short link — it would create a redirect loop.');
   }
