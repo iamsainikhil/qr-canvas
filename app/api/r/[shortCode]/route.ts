@@ -115,6 +115,19 @@ export async function GET(
 
     const destination = normalizeRedirectTarget(routeData.targetValue);
 
+    // Prevent infinite redirect loops: reject destinations that route back through this short code.
+    try {
+      const destUrl = new URL(destination);
+      const requestHost = (request.headers.get('x-forwarded-host') || request.headers.get('host') || '').split(':')[0];
+      const isSameHost = destUrl.hostname === requestHost;
+      const selfReferralPattern = new RegExp(`/r/${encodeURIComponent(shortCode)}(?:[/?#]|$)`);
+      if (isSameHost && selfReferralPattern.test(destUrl.pathname)) {
+        return redirectWithNoStore(buildErrorRedirect(request, 'error'));
+      }
+    } catch {
+      // non-URL destination handled by normalizeRedirectTarget above
+    }
+
     const userAgent = request.headers.get('user-agent') || '';
     if (isBot(userAgent)) {
       // Skip scan tracking for bots – they don't represent real user engagement

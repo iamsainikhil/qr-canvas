@@ -135,10 +135,25 @@ const getUniqueShortCode = async () => {
   throw new Error('Could not allocate unique tracking code');
 };
 
+// Reject URLs that route through this app's own short-link system to prevent redirect loops.
+const assertNotSelfReferential = (value: string) => {
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+  const origin = window.location.origin.replace(/\/$/, '');
+  const lower = value.trim().toLowerCase();
+  const selfPatterns = [`${origin}${basePath}/r/`, `${origin}/r/`];
+  if (selfPatterns.some((p) => lower.startsWith(p.toLowerCase()))) {
+    throw new Error('QR destination cannot be a QR Canvas short link — it would create a redirect loop.');
+  }
+};
+
 export const saveQrCodeForOwner = async ({ ownerUid, type, value, style }: SaveQrToFirestoreInput) => {
   const trimmedValue = value.trim();
   if (!trimmedValue) {
     throw new Error('QR value is required');
+  }
+
+  if (isTrackableQrType(type)) {
+    assertNotSelfReferential(trimmedValue);
   }
 
   const qrDocRef = doc(userQrsCollectionSafe(ownerUid));
@@ -186,6 +201,10 @@ export const updateQrCodeDestinationForOwner = async ({
   const trimmedValue = value.trim();
   if (!trimmedValue) {
     throw new Error('QR destination is required');
+  }
+
+  if (qr.shortCode) {
+    assertNotSelfReferential(trimmedValue);
   }
 
   const db = requireFirestore();
