@@ -4,8 +4,10 @@ export async function GET(request: NextRequest) {
   const params = new URLSearchParams(request.nextUrl.searchParams);
   const shortCode = (params.get('shortCode') || '').trim();
 
+  const basePath = request.nextUrl.basePath;
+
   if (!shortCode) {
-    const target = new URL('/scan-error?reason=invalid', request.nextUrl.origin);
+    const target = new URL(`${basePath}/scan-error?reason=invalid`, request.nextUrl.origin);
     return NextResponse.redirect(target, {
       status: 302,
       headers: {
@@ -16,7 +18,7 @@ export async function GET(request: NextRequest) {
 
   params.delete('shortCode');
   const query = params.toString();
-  const path = `/api/r/${encodeURIComponent(shortCode)}`;
+  const path = `${basePath}/api/r/${encodeURIComponent(shortCode)}`;
   const target = new URL(query ? `${path}?${query}` : path, request.nextUrl.origin);
 
   return NextResponse.redirect(target, {

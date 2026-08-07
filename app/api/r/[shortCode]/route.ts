@@ -30,7 +30,8 @@ const hashIp = (ip: string) => {
 
 const buildErrorRedirect = (request: NextRequest, reason: string) => {
   const url = new URL(request.url);
-  return `${url.protocol}//${url.host}/scan-error?reason=${reason}`;
+  const basePath = request.nextUrl.basePath;
+  return `${url.protocol}//${url.host}${basePath}/scan-error?reason=${reason}`;
 };
 
 const extractUtmParams = (request: NextRequest) => {
