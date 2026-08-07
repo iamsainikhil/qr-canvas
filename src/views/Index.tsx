@@ -90,8 +90,9 @@ const buildLogoDevUrl = (
 };
 
 const buildFaviconProxyUrl = (faviconUrl: string) => {
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
   const params = new URLSearchParams({ url: faviconUrl });
-  return `/api/logo-proxy?${params.toString()}`;
+  return `${basePath}/api/logo-proxy?${params.toString()}`;
 };
 
 const deriveLogoDevLookup = (

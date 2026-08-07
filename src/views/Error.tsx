@@ -48,7 +48,8 @@ export default function Error({ reason }: { reason?: string }) {
     const [animationData, setAnimationData] = useState<object | null>(null);
 
     useEffect(() => {
-        fetch('/404-error.json')
+        const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+        fetch(`${basePath}/404-error.json`)
             .then((r) => r.json())
             .then(setAnimationData)
             .catch(() => {
