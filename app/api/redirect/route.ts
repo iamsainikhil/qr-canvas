@@ -1,5 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const getRequestOrigin = (request: NextRequest) => {
+  const forwardedProto = request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim();
+  const forwardedHost = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim();
+  const host = forwardedHost || request.headers.get('host')?.split(',')[0]?.trim();
+
+  if (forwardedProto && host) {
+    return `${forwardedProto}://${host}`;
+  }
+
+  return request.nextUrl.origin;
+};
+
 export async function GET(request: NextRequest) {
   const params = new URLSearchParams(request.nextUrl.searchParams);
   const shortCode = (params.get('shortCode') || '').trim();
@@ -19,7 +31,7 @@ export async function GET(request: NextRequest) {
   params.delete('shortCode');
   const query = params.toString();
   const path = `${basePath}/api/r/${encodeURIComponent(shortCode)}`;
-  const target = new URL(query ? `${path}?${query}` : path, request.nextUrl.origin);
+  const target = new URL(query ? `${path}?${query}` : path, getRequestOrigin(request));
 
   return NextResponse.redirect(target, {
     status: 302,

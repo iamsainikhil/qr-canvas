@@ -28,10 +28,40 @@ const hashIp = (ip: string) => {
   return crypto.createHmac('sha256', salt).update(ip).digest('hex');
 };
 
+const hasProtocol = (value: string) => /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(value);
+
+const getRequestOrigin = (request: NextRequest) => {
+  const forwardedProto = request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim();
+  const forwardedHost = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim();
+  const host = forwardedHost || request.headers.get('host')?.split(',')[0]?.trim();
+
+  if (forwardedProto && host) {
+    return `${forwardedProto}://${host}`;
+  }
+
+  return request.nextUrl.origin;
+};
+
+const normalizeRedirectTarget = (targetValue: string) => {
+  const trimmed = targetValue.trim();
+  if (!trimmed) {
+    throw new Error('Missing redirect target');
+  }
+
+  if (hasProtocol(trimmed)) {
+    return trimmed;
+  }
+
+  if (trimmed.startsWith('//')) {
+    return `https:${trimmed}`;
+  }
+
+  return `https://${trimmed}`;
+};
+
 const buildErrorRedirect = (request: NextRequest, reason: string) => {
-  const url = new URL(request.url);
   const basePath = request.nextUrl.basePath;
-  return `${url.protocol}//${url.host}${basePath}/scan-error?reason=${reason}`;
+  return new URL(`${basePath}/scan-error?reason=${reason}`, getRequestOrigin(request)).toString();
 };
 
 const extractUtmParams = (request: NextRequest) => {
@@ -83,14 +113,16 @@ export async function GET(
       return redirectWithNoStore(buildErrorRedirect(request, 'disabled'));
     }
 
+    const destination = normalizeRedirectTarget(routeData.targetValue);
+
     const userAgent = request.headers.get('user-agent') || '';
     if (isBot(userAgent)) {
       // Skip scan tracking for bots – they don't represent real user engagement
       // and would inflate scan counts with automated crawl traffic.
-      return redirectWithNoStore(routeData.targetValue);
+      return redirectWithNoStore(destination);
     }
 
-    const response = redirectWithNoStore(routeData.targetValue);
+    const response = redirectWithNoStore(destination);
 
     const now = new Date().toISOString();
     const visitorId = request.cookies.get('visitor_id')?.value || crypto.randomUUID();
@@ -121,39 +153,60 @@ export async function GET(
       .collection('scans')
       .doc();
 
-    await scanRef.set({
-      id: scanRef.id,
-      qrId: routeData.qrId,
-      shortCode,
-      timestamp: now,
-      visitorId,
-      ipHash,
-      userAgent,
-      referrer,
-      country,
-      region,
-      city,
-      ...utmParams,
-    });
+    try {
+      await scanRef.set({
+        id: scanRef.id,
+        qrId: routeData.qrId,
+        shortCode,
+        timestamp: now,
+        visitorId,
+        ipHash,
+        userAgent,
+        referrer,
+        country,
+        region,
+        city,
+        ...utmParams,
+      });
 
-    await db
-      .collection('users')
-      .doc(routeData.ownerUid)
-      .collection('qrs')
-      .doc(routeData.qrId)
-      .set(
-        {
-          updatedAt: now,
-          stats: {
-            scanCount: FieldValue.increment(1),
-            lastScannedAt: now,
+      await db
+        .collection('users')
+        .doc(routeData.ownerUid)
+        .collection('qrs')
+        .doc(routeData.qrId)
+        .set(
+          {
+            updatedAt: now,
+            stats: {
+              scanCount: FieldValue.increment(1),
+              lastScannedAt: now,
+            },
           },
-        },
-        { merge: true },
-      );
+          { merge: true },
+        );
+    } catch (error) {
+      console.error('QR scan tracking failed', {
+        shortCode,
+        qrId: routeData.qrId,
+        ownerUid: routeData.ownerUid,
+        error,
+      });
+    }
 
     return response;
-  } catch {
+  } catch (error) {
+    console.error('QR redirect lookup failed', {
+      shortCode,
+      method: request.method,
+      host: request.headers.get('x-forwarded-host') || request.headers.get('host') || 'unknown',
+      error: error instanceof Error
+        ? {
+            name: error.name,
+            message: error.message,
+            stack: error.stack,
+          }
+        : String(error),
+    });
     return redirectWithNoStore(buildErrorRedirect(request, 'error'));
   }
 }
