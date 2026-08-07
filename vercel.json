@@ -5,6 +5,7 @@
   "devCommand": "npm run dev",
   "redirects": [
     { "source": "/", "destination": "/qr-canvas", "permanent": false },
+    { "source": "/scan-error", "destination": "/qr-canvas/scan-error", "permanent": false },
     { "source": "/api/r/:shortCode", "destination": "/qr-canvas/api/r/:shortCode", "permanent": false },
     { "source": "/r/:shortCode", "destination": "/qr-canvas/r/:shortCode", "permanent": false }
   ]
