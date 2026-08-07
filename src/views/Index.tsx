@@ -33,6 +33,12 @@ import { privateModeEnabled, verifyPrivateOwnerAccess } from '@/lib/privateOwner
 export type LogoSource = 'none' | 'upload' | 'favicon' | 'logo-dev';
 export type LogoDevLookupMode = 'domain' | 'name' | 'ticker' | 'crypto' | 'isin';
 type UploadableQRType = Extract<QRType, 'image' | 'pdf' | 'mp3'>;
+type SavedTrackingBinding = {
+  qrType: QRType;
+  sourceValue: string;
+  trackingValue: string;
+};
+
 const uploadableMimePrefixes: Record<UploadableQRType, string[]> = {
   image: ['image/'],
   pdf: ['application/pdf'],
@@ -155,6 +161,7 @@ const Index = () => {
   const [logoStyle, setLogoStyle] = useState<LogoStyleOptions>(defaultLogoStyleOptions);
   const [savedCount, setSavedCount] = useState(0);
   const [isDestinationUploadInProgress, setIsDestinationUploadInProgress] = useState(false);
+  const [savedTrackingBinding, setSavedTrackingBinding] = useState<SavedTrackingBinding | null>(null);
   const [canSavePrivately, setCanSavePrivately] = useState(!privateMode);
 
   useEffect(() => {
@@ -230,6 +237,20 @@ const Index = () => {
         return currentValue;
     }
   }, [qrType, currentValue, wifiSSID, wifiPassword, wifiEncryption, emailAddress, emailSubject, emailBody, smsPhone, smsMessage]);
+
+  const resolvedQrValue = useMemo(() => {
+    if (!savedTrackingBinding) return qrValue;
+
+    const normalizedValue = qrValue.trim();
+    if (
+      savedTrackingBinding.qrType === qrType
+      && savedTrackingBinding.sourceValue === normalizedValue
+    ) {
+      return savedTrackingBinding.trackingValue;
+    }
+
+    return qrValue;
+  }, [savedTrackingBinding, qrType, qrValue]);
 
   // Derive an auto-favicon URL for URL-type QR codes when the user hasn't
   // uploaded their own logo.
@@ -367,6 +388,16 @@ const Index = () => {
           downloadSize: qrSize,
         },
       });
+
+      if (saved.trackingUrl) {
+        setSavedTrackingBinding({
+          qrType,
+          sourceValue: value,
+          trackingValue: saved.trackingUrl,
+        });
+      } else {
+        setSavedTrackingBinding(null);
+      }
 
       toast({
         title: 'Saved to dashboard',
@@ -579,7 +610,7 @@ const Index = () => {
                 />
               </div>
               <QRPreview
-                qrValue={qrValue}
+                qrValue={resolvedQrValue}
                 fgColor={fgColor}
                 bgColor={bgColor}
                 patternColor={patternColor || undefined}
