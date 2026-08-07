@@ -89,6 +89,12 @@ const buildLogoDevUrl = (
   return `https://img.logo.dev/${path}?${params.toString()}`;
 };
 
+const buildFaviconProxyUrl = (faviconUrl: string) => {
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+  const params = new URLSearchParams({ url: faviconUrl });
+  return `${basePath}/api/logo-proxy?${params.toString()}`;
+};
+
 const deriveLogoDevLookup = (
   qrType: QRType,
   values: {
@@ -260,7 +266,8 @@ const Index = () => {
       const withProto = /^https?:\/\//i.test(currentValue) ? currentValue : `https://${currentValue}`;
       const host = new URL(withProto).hostname;
       if (!host) return null;
-      return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=128`;
+      const upstreamFaviconUrl = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=128`;
+      return buildFaviconProxyUrl(upstreamFaviconUrl);
     } catch {
       return null;
     }
