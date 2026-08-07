@@ -5,8 +5,9 @@
   "devCommand": "npm run dev",
   "redirects": [
     { "source": "/", "destination": "/qr-canvas", "permanent": false },
-    { "source": "/scan-error", "destination": "/qr-canvas/scan-error", "permanent": false },
-    { "source": "/api/r/:shortCode", "destination": "/qr-canvas/api/r/:shortCode", "permanent": false },
-    { "source": "/r/:shortCode", "destination": "/qr-canvas/r/:shortCode", "permanent": false }
+    { "source": "/:path(dashboard|scan-error)", "destination": "/qr-canvas/:path", "permanent": false },
+    { "source": "/api/:path*", "destination": "/qr-canvas/api/:path*", "permanent": false },
+    { "source": "/r/:path*", "destination": "/qr-canvas/r/:path*", "permanent": false },
+    { "source": "/:asset(robots.txt|site.webmanifest|favicon.ico)", "destination": "/qr-canvas/:asset", "permanent": false }
   ]
 }
