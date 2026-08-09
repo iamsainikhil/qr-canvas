@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { signOut } from 'firebase/auth';
 import { Icon } from '@iconify/react';
+import { firebaseAuth } from '@/integrations/firebase/client';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDistanceToNow } from 'date-fns';
 import QRCodeStyling, { type CornerDotType, type CornerSquareType, type DotType } from 'qr-code-styling';
@@ -635,6 +637,25 @@ export default function Dashboard() {
     }
   };
 
+  const handleSignOut = async () => {
+    if (!firebaseAuth) return;
+
+    try {
+      await signOut(firebaseAuth);
+      toast({
+        title: 'Signed out',
+        description: 'You have been signed out of your account.',
+      });
+    } catch (error) {
+      const description = error instanceof Error ? error.message : 'Sign out failed';
+      toast({
+        title: 'Could not sign out',
+        description,
+        variant: 'destructive',
+      });
+    }
+  };
+
   const copyValue = async (value: string, description = 'QR content copied to clipboard.') => {
     try {
       await navigator.clipboard.writeText(value);
@@ -1019,19 +1040,24 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background pb-10">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 pt-6 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Dashboard</p>
-            <h1 className="font-heading text-2xl font-bold text-foreground sm:text-3xl">Saved QR Codes</h1>
+      {/* Full-width header */}
+      <header className="border-b border-border bg-card">
+        <div className="flex w-full flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-3">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Dashboard</p>
+              <h1 className="font-heading text-2xl font-bold text-foreground sm:text-3xl">Saved QR Codes</h1>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
             <ThemeToggle />
             <Button asChild variant="outline" className="rounded-full">
                   <Link href="/" className="inline-flex items-center gap-2">
-                <Icon icon="lucide:arrow-left" className="h-4 w-4" />
-                Back to canvas
+                <Icon icon="lucide:palette" className="h-4 w-4" />
               </Link>
+            </Button>
+            <Button variant="outline" className="rounded-full" onClick={handleSignOut}>
+              <Icon icon="line-md:logout" className="h-4 w-4" />
             </Button>
             <DestructiveConfirmDialog
               trigger={
@@ -1045,8 +1071,10 @@ export default function Dashboard() {
               onConfirm={clearAll}
             />
           </div>
-        </header>
+        </div>
+      </header>
 
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 pt-6 sm:px-6 lg:px-8">
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">

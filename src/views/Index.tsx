@@ -29,6 +29,7 @@ import { saveQrCodeForOwner, subscribeToOwnerQrCodes } from '@/lib/firestoreQrCo
 import { firebaseAuth, storage } from '@/integrations/firebase/client';
 import { onAuthStateChanged } from 'firebase/auth';
 import { privateModeEnabled, verifyPrivateOwnerAccess } from '@/lib/privateOwner';
+import { Footer } from '@/components/Footer';
 
 export type LogoSource = 'none' | 'upload' | 'favicon' | 'logo-dev';
 export type LogoDevLookupMode = 'domain' | 'name' | 'ticker' | 'crypto' | 'isin';
@@ -478,40 +479,29 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-background xl:flex">
-        {/* Left Sidebar - QR Type Selector */}
-        <aside className="hidden w-72 flex-shrink-0 bg-background pt-8 pl-4 pr-2 xl:block">
-          <ScrollArea className="h-[calc(100vh-2rem)] pr-2">
-            <QRTypeSelector
-              selectedType={qrType}
-              onTypeChange={setQrType}
-            />
-          </ScrollArea>
-        </aside>
-
-        {/* Main Content */}
-        <div className="flex min-h-screen flex-col xl:flex-1">
-        <div className="mx-auto w-full max-w-7xl px-3 pt-3 sm:px-6 lg:px-8 xl:pt-6">
-          <header className="flex flex-col gap-4 rounded-2xl border border-border bg-card px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-            <div className="flex min-w-0 items-center gap-3">
+    <div className="flex min-h-screen w-full flex-col bg-background">
+      {/* Full-width header */}
+      <header className="border-b border-border bg-card">
+        <div className="flex w-full flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-3">
               <img src={`${process.env.NEXT_PUBLIC_BASE_PATH}/logo.png`} alt="QR Canvas" className="h-11 w-11 flex-shrink-0 rounded-xl sm:h-12 sm:w-12" />
               <div className="min-w-0">
                 <h1 className="truncate font-heading text-xl font-bold text-foreground">QR Canvas</h1>
                 {privateMode && canSavePrivately ? (
                   <>
-                    <p className="hidden text-sm text-muted-foreground sm:block">
+                    <p className="hidden truncate text-sm text-muted-foreground sm:block">
                       Generate dynamic QR codes with scan tracking.
                     </p>
-                    <p className="text-xs text-muted-foreground sm:hidden">
+                    <p className="truncate text-xs text-muted-foreground sm:hidden">
                       Generate dynamic QR codes with scan tracking.
                     </p>
                   </>
                 ) : (
                   <>
-                    <p className="hidden text-sm text-muted-foreground sm:block">
+                    <p className="hidden truncate text-sm text-muted-foreground sm:block">
                       Create Static QR codes instantly. Dynamic QR codes, dashboard of saved QR codes, and tracking analytics are owner-only.
                     </p>
-                    <p className="hidden text-sm text-muted-foreground sm:block">
+                    <p className="hidden truncate text-sm text-muted-foreground sm:block">
                       <a
                         href="https://github.com/iamsainikhil/qr-canvas"
                         target="_blank"
@@ -522,10 +512,10 @@ const Index = () => {
                       </a>{' '}
                       to self-host and unlock the full private QR canvas studio.
                     </p>
-                    <p className="text-xs text-muted-foreground sm:hidden">
+                    <p className="truncate text-xs text-muted-foreground sm:hidden">
                       Public demo: QR creation only.
                     </p>
-                    <p className="text-xs text-muted-foreground sm:hidden">
+                    <p className="truncate text-xs text-muted-foreground sm:hidden">
                       <a
                         href="https://github.com/iamsainikhil/qr-canvas"
                         target="_blank"
@@ -555,17 +545,30 @@ const Index = () => {
                 )}
               </Button>
               <Button asChild variant="paper" className="rounded-full">
-              <Link href="/dashboard" className="inline-flex items-center gap-2 whitespace-nowrap">
-                <Icon icon="lucide:layout-dashboard" className="h-4 w-4" />
-                Dashboard ({savedCount})
-              </Link>
-            </Button>
+                <Link href="/dashboard" className="inline-flex items-center gap-2 whitespace-nowrap">
+                  <Icon icon="lucide:layout-dashboard" className="h-4 w-4" />
+                  Dashboard ({savedCount})
+                </Link>
+              </Button>
             </div>
-          </header>
-        </div>
+          </div>
+        </header>
 
-        {/* Mobile QR Type Selector - Dropdown */}
-        <div className="mx-auto mt-4 w-full max-w-7xl px-3 sm:px-6 lg:px-8 xl:hidden">
+        {/* Main Content - 3 column area */}
+        <div className="flex min-w-0 flex-1 flex-col xl:flex-row">
+          {/* Left Sidebar - QR Type Selector */}
+          <aside className="hidden w-72 flex-shrink-0 bg-background pt-8 pl-4 pr-2 xl:block">
+            <ScrollArea className="h-[calc(100vh-2rem)] pr-2">
+              <QRTypeSelector
+                selectedType={qrType}
+                onTypeChange={setQrType}
+              />
+            </ScrollArea>
+          </aside>
+
+          <div className="flex min-w-0 flex-1 flex-col">
+            {/* Mobile QR Type Selector - Dropdown */}
+            <div className="mx-auto mt-4 w-full max-w-7xl px-3 sm:px-6 lg:px-8 xl:hidden">
           <div className="mb-4 rounded-2xl border border-border bg-card p-3 sm:p-4">
             <h2 className="mb-2 font-heading text-[18px] font-bold leading-[120%] tracking-tight text-foreground sm:mb-3 sm:text-[20px]">Select QR type</h2>
             <Select value={qrType} onValueChange={(value) => setQrType(value as QRType)}>
@@ -679,8 +682,11 @@ const Index = () => {
               />
             </div>
           </aside>
+          </div>
         </div>
       </div>
+
+      <Footer />
     </div>
   );
 };

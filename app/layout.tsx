@@ -2,6 +2,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 import { RuntimeRecovery } from '@/components/RuntimeRecovery';
 import { Toaster } from '@/components/ui/toaster';
+import { ThemeProvider } from '@/hooks/use-theme';
 
 export const metadata: Metadata = {
   title: 'QR Canvas',
@@ -14,7 +15,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <RuntimeRecovery />
         <Toaster />
-        {children}
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );
