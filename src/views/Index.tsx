@@ -482,26 +482,26 @@ const Index = () => {
     <div className="flex min-h-screen w-full flex-col bg-background">
       {/* Full-width header */}
       <header className="border-b border-border bg-card">
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+        <div className="flex w-full flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-3">
               <img src={`${process.env.NEXT_PUBLIC_BASE_PATH}/logo.png`} alt="QR Canvas" className="h-11 w-11 flex-shrink-0 rounded-xl sm:h-12 sm:w-12" />
               <div className="min-w-0">
                 <h1 className="truncate font-heading text-xl font-bold text-foreground">QR Canvas</h1>
                 {privateMode && canSavePrivately ? (
                   <>
-                    <p className="hidden text-sm text-muted-foreground sm:block">
+                    <p className="hidden truncate text-sm text-muted-foreground sm:block">
                       Generate dynamic QR codes with scan tracking.
                     </p>
-                    <p className="text-xs text-muted-foreground sm:hidden">
+                    <p className="truncate text-xs text-muted-foreground sm:hidden">
                       Generate dynamic QR codes with scan tracking.
                     </p>
                   </>
                 ) : (
                   <>
-                    <p className="hidden text-sm text-muted-foreground sm:block">
+                    <p className="hidden truncate text-sm text-muted-foreground sm:block">
                       Create Static QR codes instantly. Dynamic QR codes, dashboard of saved QR codes, and tracking analytics are owner-only.
                     </p>
-                    <p className="hidden text-sm text-muted-foreground sm:block">
+                    <p className="hidden truncate text-sm text-muted-foreground sm:block">
                       <a
                         href="https://github.com/iamsainikhil/qr-canvas"
                         target="_blank"
@@ -512,10 +512,10 @@ const Index = () => {
                       </a>{' '}
                       to self-host and unlock the full private QR canvas studio.
                     </p>
-                    <p className="text-xs text-muted-foreground sm:hidden">
+                    <p className="truncate text-xs text-muted-foreground sm:hidden">
                       Public demo: QR creation only.
                     </p>
-                    <p className="text-xs text-muted-foreground sm:hidden">
+                    <p className="truncate text-xs text-muted-foreground sm:hidden">
                       <a
                         href="https://github.com/iamsainikhil/qr-canvas"
                         target="_blank"
