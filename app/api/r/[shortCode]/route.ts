@@ -152,10 +152,19 @@ export async function GET(
     const forwardedFor = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '';
     const ipHash = hashIp(normalizeIp(forwardedFor));
 
-    const referrer = request.headers.get('referer') || '';
-    const country = request.headers.get('x-vercel-ip-country') || 'unknown';
-    const region = request.headers.get('x-vercel-ip-country-region') || 'unknown';
-    const city = request.headers.get('x-vercel-ip-city') || 'unknown';
+    // Helper to get first present header from a list of candidates
+    const getHeader = (request: NextRequest, ...names: string[]) => {
+      for (const name of names) {
+        const value = request.headers.get(name);
+        if (value) return value;
+      }
+      return '';
+    };
+
+    const referrer = getHeader(request, 'referer', 'referrer', 'origin') || 'unknown';
+    const country = getHeader(request, 'x-vercel-ip-country', 'cf-ipcountry', 'x-forwarded-for') || 'unknown';
+    const region = getHeader(request, 'x-vercel-ip-country-region', 'cf-ipregion') || 'unknown';
+    const city = getHeader(request, 'x-vercel-ip-city', 'cf-city') || 'unknown';
     const utmParams = extractUtmParams(request);
 
     const scanRef = db
