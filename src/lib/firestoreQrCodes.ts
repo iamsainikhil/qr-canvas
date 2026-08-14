@@ -1,4 +1,5 @@
 import {
+  addDoc,
   collection,
   deleteDoc,
   doc,
@@ -8,6 +9,7 @@ import {
   onSnapshot,
   orderBy,
   query,
+  where,
   writeBatch,
   setDoc,
 } from 'firebase/firestore';
@@ -22,6 +24,8 @@ import {
   createSavedQrCodeDocument,
   generateShortCode,
   isTrackableQrType,
+  LinkFolder,
+  normalizeFolderIds,
 } from '@/lib/savedQrCodes';
 import type { QRType } from '@/components/QRTypeSelector';
 import type { ThemePreset } from '@/components/ThemePresets';
@@ -50,7 +54,11 @@ export interface SaveQrToFirestoreInput {
   type: QRType;
   value: string;
   style: SavedQRCodeStyleSnapshot;
+  folderIds?: string[];
 }
+
+const FOLDER_NAME_MAX = 40;
+const QR_NAME_MAX = 60;
 
 const requireFirestore = () => {
   if (!firestore) {
@@ -60,10 +68,14 @@ const requireFirestore = () => {
   return firestore;
 };
 
+const nowIso = () => new Date().toISOString();
+
 const userQrsCollectionSafe = (ownerUid: string) => collection(requireFirestore(), 'users', ownerUid, 'qrs');
 const userQrDocSafe = (ownerUid: string, qrId: string) => doc(requireFirestore(), 'users', ownerUid, 'qrs', qrId);
 const userQrScansCollectionSafe = (ownerUid: string, qrId: string) =>
   collection(requireFirestore(), 'users', ownerUid, 'qrs', qrId, 'scans');
+const foldersCollectionSafe = () => collection(requireFirestore(), 'folders');
+const folderDocSafe = (folderId: string) => doc(requireFirestore(), 'folders', folderId);
 const routeDocSafe = (shortCode: string) => doc(requireFirestore(), 'qr_routes', shortCode);
 
 const uploadBackedTypes = new Set(['image', 'pdf', 'mp3']);
@@ -146,7 +158,7 @@ const assertNotSelfReferential = (value: string) => {
   }
 };
 
-export const saveQrCodeForOwner = async ({ ownerUid, type, value, style }: SaveQrToFirestoreInput) => {
+export const saveQrCodeForOwner = async ({ ownerUid, type, value, style, folderIds }: SaveQrToFirestoreInput) => {
   const trimmedValue = value.trim();
   if (!trimmedValue) {
     throw new Error('QR value is required');
@@ -170,6 +182,7 @@ export const saveQrCodeForOwner = async ({ ownerUid, type, value, style }: SaveQ
     shortCode,
     trackingUrl,
     style,
+    folderIds,
   });
 
   await setDoc(qrDocRef, qrDocument);
@@ -193,10 +206,16 @@ export const updateQrCodeDestinationForOwner = async ({
   ownerUid,
   qr,
   value,
+  name,
+  description,
+  folderIds,
 }: {
   ownerUid: string;
   qr: SavedQRCode;
   value: string;
+  name?: string;
+  description?: string;
+  folderIds?: string[];
 }) => {
   const trimmedValue = value.trim();
   if (!trimmedValue) {
@@ -209,7 +228,13 @@ export const updateQrCodeDestinationForOwner = async ({
 
   const db = requireFirestore();
   const batch = writeBatch(db);
-  const updatedQr = buildUpdatedSavedQrCodeDocument({ item: qr, value: trimmedValue });
+  const updatedQr = buildUpdatedSavedQrCodeDocument({
+    item: qr,
+    value: trimmedValue,
+    name,
+    description,
+    folderIds,
+  });
 
   batch.set(userQrDocSafe(ownerUid, qr.id), updatedQr);
 
@@ -219,7 +244,7 @@ export const updateQrCodeDestinationForOwner = async ({
       ownerUid,
       qrId: qr.id,
       targetValue: updatedQr.targetValue,
-      active: true,
+      active: qr.active ?? true,
       createdAt: qr.createdAt,
       updatedAt: updatedQr.updatedAt,
     });
@@ -289,6 +314,277 @@ export const fetchQrScanEvents = async (
   const scansQuery = query(scansRef, orderBy('timestamp', 'desc'), limit(maxCount));
   const snapshot = await getDocs(scansQuery);
   return snapshot.docs.map((d) => d.data() as ScanEvent);
+};
+
+// ─── Folders ────────────────────────────────────────────────────────────────
+
+export const subscribeToOwnerFolders = (
+  onData: (items: LinkFolder[]) => void,
+  onError?: (error: Error) => void,
+) => {
+  const foldersQuery = query(foldersCollectionSafe(), orderBy('name', 'asc'));
+
+  return onSnapshot(
+    foldersQuery,
+    (snapshot) => {
+      const items = snapshot.docs.map((entry) => ({
+        ...(entry.data() as LinkFolder),
+        id: entry.id,
+      }));
+      onData(items);
+    },
+    (error) => {
+      if (onError) onError(error);
+    },
+  );
+};
+
+export const createFolderForOwner = async (
+  ownerUid: string,
+  name: string,
+): Promise<LinkFolder> => {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    throw new Error('Folder name is required.');
+  }
+  if (trimmed.length > FOLDER_NAME_MAX) {
+    throw new Error(`Folder names can be at most ${FOLDER_NAME_MAX} characters.`);
+  }
+
+  const timestamp = nowIso();
+  const ref = await addDoc(foldersCollectionSafe(), {
+    ownerUid,
+    name: trimmed,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    sortOrder: Date.now(),
+  });
+
+  return {
+    id: ref.id,
+    ownerUid,
+    name: trimmed,
+    createdAt: timestamp,
+    updatedAt: nowIso(),
+    sortOrder: Date.now(),
+  };
+};
+
+export const renameFolderForOwner = async (folderId: string, name: string): Promise<void> => {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    throw new Error('Folder name is required.');
+  }
+  if (trimmed.length > FOLDER_NAME_MAX) {
+    throw new Error(`Folder names can be at most ${FOLDER_NAME_MAX} characters.`);
+  }
+
+  await setDoc(
+    folderDocSafe(folderId),
+    {
+      name: trimmed,
+      updatedAt: nowIso(),
+    },
+    { merge: true },
+  );
+};
+
+export const reorderFoldersForOwner = async (updates: Record<string, number>): Promise<void> => {
+  const entries = Object.entries(updates);
+  if (entries.length === 0) return;
+
+  const db = requireFirestore();
+  const batch = writeBatch(db);
+  for (const [folderId, sortOrder] of entries) {
+    batch.update(folderDocSafe(folderId), {
+      sortOrder,
+      updatedAt: nowIso(),
+    });
+  }
+  await batch.commit();
+};
+
+export const deleteFolderForOwner = async (ownerUid: string, folderId: string): Promise<void> => {
+  await deleteDoc(folderDocSafe(folderId));
+
+  const snapshot = await getDocs(
+    query(userQrsCollectionSafe(ownerUid), where('folderIds', 'array-contains', folderId)),
+  );
+  if (snapshot.empty) return;
+
+  const docs = snapshot.docs.map((entry) => ({
+    ref: entry.ref,
+    folderIds: ((entry.data().folderIds as string[]) || []).filter((id) => id !== folderId),
+  }));
+
+  const db = requireFirestore();
+  for (const group of chunk(docs, 400)) {
+    const batch = writeBatch(db);
+    group.forEach(({ ref, folderIds }) => {
+      batch.update(ref, { folderIds, updatedAt: nowIso() });
+    });
+    await batch.commit();
+  }
+};
+
+export const setQrCodeFoldersForOwner = async (
+  ownerUid: string,
+  qrId: string,
+  folderIds: string[],
+): Promise<void> => {
+  await setDoc(
+    userQrDocSafe(ownerUid, qrId),
+    {
+      folderIds: normalizeFolderIds(folderIds),
+      updatedAt: nowIso(),
+    },
+    { merge: true },
+  );
+};
+
+export const setQrCodeActiveForOwner = async (
+  ownerUid: string,
+  qr: SavedQRCode,
+  active: boolean,
+): Promise<void> => {
+  const db = requireFirestore();
+  const batch = writeBatch(db);
+  batch.set(
+    userQrDocSafe(ownerUid, qr.id),
+    { active, updatedAt: nowIso() },
+    { merge: true },
+  );
+
+  if (qr.shortCode) {
+    batch.set(
+      routeDocSafe(qr.shortCode),
+      { active, updatedAt: nowIso() },
+      { merge: true },
+    );
+  }
+
+  await batch.commit();
+};
+
+export const renameQrCodeForOwner = async (
+  ownerUid: string,
+  qrId: string,
+  name: string,
+): Promise<void> => {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    throw new Error('QR name is required.');
+  }
+  if (trimmed.length > QR_NAME_MAX) {
+    throw new Error(`QR names can be at most ${QR_NAME_MAX} characters.`);
+  }
+
+  await setDoc(
+    userQrDocSafe(ownerUid, qrId),
+    {
+      name: trimmed,
+      updatedAt: nowIso(),
+    },
+    { merge: true },
+  );
+};
+
+// ─── Bulk item operations ──────────────────────────────────────────────────
+
+export const setQrCodesFoldersForOwner = async (
+  ownerUid: string,
+  qrIds: string[],
+  folderIds: string[],
+): Promise<void> => {
+  const db = requireFirestore();
+  const normalized = normalizeFolderIds(folderIds);
+
+  for (const group of chunk(qrIds, 400)) {
+    const batch = writeBatch(db);
+    group.forEach((qrId) => {
+      batch.set(
+        userQrDocSafe(ownerUid, qrId),
+        { folderIds: normalized, updatedAt: nowIso() },
+        { merge: true },
+      );
+    });
+    await batch.commit();
+  }
+};
+
+export const setQrCodesActiveForOwner = async (
+  ownerUid: string,
+  qrIds: string[],
+  active: boolean,
+): Promise<void> => {
+  const db = requireFirestore();
+
+  for (const group of chunk(qrIds, 400)) {
+    const batch = writeBatch(db);
+    for (const qrId of group) {
+      const entry = await getDoc(userQrDocSafe(ownerUid, qrId));
+      if (entry.exists()) {
+        const data = entry.data() as SavedQRCode;
+        if (data.shortCode) {
+          batch.set(
+            routeDocSafe(data.shortCode),
+            { active, updatedAt: nowIso() },
+            { merge: true },
+          );
+        }
+      }
+      batch.set(
+        userQrDocSafe(ownerUid, qrId),
+        { active, updatedAt: nowIso() },
+        { merge: true },
+      );
+    }
+    await batch.commit();
+  }
+};
+
+export const deleteQrCodesForOwner = async (
+  ownerUid: string,
+  qrIds: string[],
+): Promise<void> => {
+  const routeCodes: string[] = [];
+
+  for (const qrId of qrIds) {
+    const entry = await getDoc(userQrDocSafe(ownerUid, qrId));
+    if (entry.exists()) {
+      const data = entry.data() as SavedQRCode;
+      await Promise.all([
+        deleteScansForQr(ownerUid, qrId),
+        tryDeleteUploadedTargetAsset(data),
+      ]);
+      if (data.shortCode) {
+        routeCodes.push(data.shortCode);
+      }
+    }
+  }
+
+  const db = requireFirestore();
+  for (const group of chunk(qrIds, 400)) {
+    const batch = writeBatch(db);
+    group.forEach((qrId) => batch.delete(userQrDocSafe(ownerUid, qrId)));
+    await batch.commit();
+  }
+
+  if (routeCodes.length > 0) {
+    for (const group of chunk(routeCodes, 400)) {
+      const batch = writeBatch(db);
+      group.forEach((shortCode) => batch.delete(routeDocSafe(shortCode)));
+      await batch.commit();
+    }
+  }
+};
+
+const chunk = <T,>(items: T[], size: number): T[][] => {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
 };
 
 // ─── Custom Themes ────────────────────────────────────────────────────────────
