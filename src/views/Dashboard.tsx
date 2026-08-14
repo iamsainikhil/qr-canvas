@@ -2620,7 +2620,7 @@ export default function Dashboard() {
             <div className="hidden overflow-x-auto lg:block">
               <table className="w-full min-w-[1100px] text-left text-sm">
                 <thead className="border-b border-border bg-muted/40 text-xs text-muted-foreground">
-                  <tr>
+                  <tr className="group">
                     <th className="px-4 py-3">
                       <input
                         ref={selectAllRef}
@@ -2628,7 +2628,11 @@ export default function Dashboard() {
                         checked={allPageSelected}
                         onChange={toggleSelectAllOnPage}
                         aria-label="Select all QR codes on this page"
-                        className="h-4 w-4 accent-primary"
+                        className={`h-4 w-4 accent-primary transition-opacity ${
+                          allPageSelected || somePageSelected
+                            ? 'opacity-100'
+                            : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
+                        }`}
                       />
                     </th>
                     <th className="px-4 py-3 font-medium">Type</th>
@@ -2662,7 +2666,7 @@ export default function Dashboard() {
                     entry.kind === 'group' ? (
                       <tr
                         key={`group-${entry.group.key}`}
-                        className="border-y border-border bg-muted/20"
+                        className="group border-y border-border bg-muted/20"
                       >
                         <td colSpan={8} className="px-4 py-2">
                           <div className="flex items-center justify-between gap-2">
@@ -2676,7 +2680,11 @@ export default function Dashboard() {
                                 onChange={() => toggleGroupSelection(entry.group)}
                                 disabled={entry.group.items.length === 0}
                                 aria-label={`Select all QR codes in ${entry.group.title}`}
-                                className="h-4 w-4 accent-primary disabled:opacity-30"
+                                className={`h-4 w-4 accent-primary transition-opacity disabled:opacity-30 ${
+                                  groupSomeSelected(entry.group) || groupAllSelected(entry.group)
+                                    ? 'opacity-100'
+                                    : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
+                                }`}
                               />
                               <button
                                 onClick={() => toggleCollapsed(entry.group.key)}
@@ -2742,7 +2750,7 @@ export default function Dashboard() {
                     ) : (
                       <tr
                         key={`${entry.group.key}-${entry.item.id}`}
-                        className={`transition-colors ${
+                        className={`group transition-colors ${
                           selected.has(entry.item.id) ? 'bg-muted/40' : 'hover:bg-muted/30'
                         }`}
                       >
@@ -2752,7 +2760,11 @@ export default function Dashboard() {
                             checked={selected.has(entry.item.id)}
                             onChange={() => toggleSelected(entry.item.id)}
                             aria-label={`Select ${entry.item.name}`}
-                            className="h-4 w-4 accent-primary"
+                            className={`h-4 w-4 accent-primary transition-opacity ${
+                              selected.has(entry.item.id)
+                                ? 'opacity-100'
+                                : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
+                            }`}
                           />
                         </td>
                         <td className="px-4 py-3">
