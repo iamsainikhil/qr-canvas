@@ -20,7 +20,17 @@ export interface SavedQRCodeStyleSnapshot {
 
 export interface SavedQRCodeStats {
   scanCount: number;
+  uniqueVisitors?: number;
   lastScannedAt: string | null;
+}
+
+export interface LinkFolder {
+  id: string;
+  ownerUid: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  sortOrder?: number;
 }
 
 export interface SavedQRCode {
@@ -37,6 +47,9 @@ export interface SavedQRCode {
   updatedAt: string;
   style: SavedQRCodeStyleSnapshot;
   stats: SavedQRCodeStats;
+  folderIds?: string[];
+  active: boolean;
+  description?: string;
 }
 
 export interface CreateSavedQRCodeInput {
@@ -48,7 +61,16 @@ export interface CreateSavedQRCodeInput {
   shortCode: string | null;
   trackingUrl: string | null;
   style: SavedQRCodeStyleSnapshot;
+  folderIds?: string[];
 }
+
+export const normalizeFolderIds = (ids: string[] | undefined) => {
+  return Array.from(
+    new Set(
+      (ids || []).filter((id): id is string => typeof id === 'string' && Boolean(id.trim())),
+    ),
+  ).sort();
+};
 
 export const qrTypeLabel: Record<QRType, string> = {
   url: 'URL',
@@ -100,6 +122,7 @@ export const createSavedQrCodeDocument = ({
   shortCode,
   trackingUrl,
   style,
+  folderIds,
 }: CreateSavedQRCodeInput): SavedQRCode => {
   const now = new Date().toISOString();
   const trimmedValue = value.trim();
@@ -120,27 +143,40 @@ export const createSavedQrCodeDocument = ({
     style,
     stats: {
       scanCount: 0,
+      uniqueVisitors: 0,
       lastScannedAt: null,
     },
+    folderIds: normalizeFolderIds(folderIds),
+    active: true,
+    description: '',
   };
 };
 
 export const buildUpdatedSavedQrCodeDocument = ({
   item,
   value,
+  name,
+  description,
+  folderIds,
 }: {
   item: SavedQRCode;
   value: string;
+  name?: string;
+  description?: string;
+  folderIds?: string[];
 }): SavedQRCode => {
   const trimmedValue = value.trim();
   const now = new Date().toISOString();
   const finalValue = item.trackingEnabled && item.trackingUrl ? item.trackingUrl : trimmedValue;
+  const autoName = buildSavedQrName(item.type, trimmedValue);
 
   return {
     ...item,
-    name: buildSavedQrName(item.type, trimmedValue),
+    name: name === undefined ? autoName : name.trim() || autoName,
     value: finalValue,
     targetValue: trimmedValue,
+    description: description === undefined ? item.description ?? '' : description.trim(),
+    folderIds: folderIds === undefined ? item.folderIds || [] : normalizeFolderIds(folderIds),
     updatedAt: now,
   };
 };
