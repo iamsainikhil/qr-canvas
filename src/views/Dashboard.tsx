@@ -658,10 +658,8 @@ function QrActiveSwitch({
 
 interface QrRowActionHandlers {
   onToggleActive: (item: SavedQRCode, active: boolean) => void;
-  onCopy: () => void;
   onOpen: () => void;
   onAnalytics: () => void;
-  onPreview: () => void;
   onEdit: () => void;
   onAssignFolders: () => void;
   onDelete: () => void;
@@ -687,20 +685,12 @@ function RowActionMenu({ item, ...handlers }: { item: SavedQRCode } & QrRowActio
           {item.active ? 'Deactivate' : 'Activate'}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={handlers.onCopy}>
-          <Icon icon="lucide:copy" className="h-4 w-4" />
-          {item.trackingUrl ? 'Copy short link' : 'Copy destination'}
-        </DropdownMenuItem>
         {item.trackingEnabled && (
           <DropdownMenuItem onSelect={handlers.onAnalytics}>
             <Icon icon="lucide:bar-chart-2" className="h-4 w-4" />
             Analytics
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem onSelect={handlers.onPreview}>
-          <Icon icon="lucide:qr-code" className="h-4 w-4" />
-          Preview QR
-        </DropdownMenuItem>
         <DropdownMenuItem onSelect={handlers.onOpen} disabled={!canOpenInBrowser(item)}>
           <Icon icon="lucide:external-link" className="h-4 w-4" />
           Open destination
@@ -2352,10 +2342,8 @@ export default function Dashboard() {
 
   const getRowHandlers = (item: SavedQRCode): QrRowActionHandlers => ({
     onToggleActive: toggleActive,
-    onCopy: () => copyShortLink(item),
     onOpen: () => window.open(item.targetValue, '_blank', 'noopener,noreferrer'),
     onAnalytics: () => void openAnalytics(item),
-    onPreview: () => setPreviewItem(item),
     onEdit: () => setEditingItem(item),
     onAssignFolders: () => setAssigningItem(item),
     onDelete: () => setDeletingItem(item),
