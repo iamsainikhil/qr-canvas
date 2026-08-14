@@ -19,7 +19,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -41,6 +40,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import type { QRType } from '@/components/QRTypeSelector';
 import { SavedQRCode, LinkFolder, qrTypeLabel } from '@/lib/savedQrCodes';
 import { defaultScanLabelStyle } from '@/components/scanLabelStyle';
 import { resolveLogoStyleOptions } from '@/components/logoStyle';
@@ -598,15 +598,29 @@ function ThemeToggle() {
   );
 }
 
-function DisplayNameBadge({ item }: { item: SavedQRCode }) {
+const QR_TYPE_ICONS: Record<QRType, string> = {
+  url: 'lucide:link-2',
+  video: 'lucide:video',
+  wifi: 'lucide:wifi',
+  app: 'lucide:smartphone',
+  text: 'lucide:type',
+  image: 'lucide:image',
+  email: 'lucide:mail',
+  sms: 'lucide:message-square',
+  pdf: 'lucide:file-text',
+  mp3: 'lucide:music',
+};
+
+function QrTypeBadge({ item }: { item: SavedQRCode }) {
   return (
-    <Badge
-      variant={item.active ? 'default' : 'outline'}
-      className="max-w-[12rem] truncate"
-      title={`${item.name} · ${qrTypeLabel[item.type]}`}
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium"
+      title={`${qrTypeLabel[item.type]}${item.active ? '' : ' · inactive'}`}
     >
-      {item.name}
-    </Badge>
+      <Icon icon={QR_TYPE_ICONS[item.type]} className="h-3.5 w-3.5 text-muted-foreground" />
+      {qrTypeLabel[item.type]}
+      {!item.active && <span className="h-1.5 w-1.5 rounded-full bg-destructive" />}
+    </span>
   );
 }
 
@@ -2617,15 +2631,7 @@ export default function Dashboard() {
                         className="h-4 w-4 accent-primary"
                       />
                     </th>
-                    <th className="px-4 py-3">
-                      <SortHeaderButton
-                        label="Name"
-                        sortKey="name"
-                        sortBy={sortBy}
-                        sortDir={sortDir}
-                        onSort={handleSort}
-                      />
-                    </th>
+                    <th className="px-4 py-3 font-medium">Type</th>
                     <th className="px-4 py-3 font-medium">Destination</th>
                     <th className="px-4 py-3 text-right font-medium">
                       <SortHeaderButton
@@ -2750,7 +2756,7 @@ export default function Dashboard() {
                           />
                         </td>
                         <td className="px-4 py-3">
-                          <DisplayNameBadge item={entry.item} />
+                          <QrTypeBadge item={entry.item} />
                         </td>
                         <td
                           className="max-w-[200px] truncate px-4 py-3 text-muted-foreground"
@@ -2867,7 +2873,7 @@ export default function Dashboard() {
                       aria-label={`Select ${entry.item.name}`}
                       className="h-4 w-4 shrink-0 accent-primary"
                     />
-                    <DisplayNameBadge item={entry.item} />
+                    <QrTypeBadge item={entry.item} />
                     <span
                       className="min-w-0 flex-1 truncate text-sm text-muted-foreground"
                       title={entry.item.targetValue || entry.item.value}
