@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { signOut } from 'firebase/auth';
-import { Icon } from '@iconify/react';
-import { firebaseAuth } from '@/integrations/firebase/client';
+import { Icon } from '@iconify/react';import { firebaseAuth } from '@/integrations/firebase/client';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDistanceToNow } from 'date-fns';
 import QRCodeStyling, { type CornerDotType, type CornerSquareType, type DotType } from 'qr-code-styling';
@@ -40,7 +39,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { SavedQRCode, LinkFolder, qrTypeLabel } from '@/lib/savedQrCodes';
@@ -637,22 +635,6 @@ function QuickCopyButton({ item, onCopy }: { item: SavedQRCode; onCopy: () => vo
     >
       <Icon icon="lucide:copy" className="h-4 w-4" />
     </Button>
-  );
-}
-
-function QrActiveSwitch({
-  item,
-  onToggle,
-}: {
-  item: SavedQRCode;
-  onToggle: (item: SavedQRCode, active: boolean) => void;
-}) {
-  return (
-    <Switch
-      checked={item.active}
-      onCheckedChange={(value) => onToggle(item, value)}
-      aria-label={`Toggle ${item.name}`}
-    />
   );
 }
 
@@ -2599,7 +2581,6 @@ export default function Dashboard() {
                         onSort={handleSort}
                       />
                     </th>
-                    <th className="px-4 py-3 font-medium">Status</th>
                     <th className="px-4 py-3 font-medium">Preview</th>
                     <th className="px-4 py-3 font-medium">Copy</th>
                     <th className="px-4 py-3 text-right font-medium">Actions</th>
@@ -2612,7 +2593,7 @@ export default function Dashboard() {
                         key={`group-${entry.group.key}`}
                         className="border-y border-border bg-muted/20"
                       >
-                        <td colSpan={9} className="px-4 py-2">
+                        <td colSpan={8} className="px-4 py-2">
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
                               <input
@@ -2717,9 +2698,6 @@ export default function Dashboard() {
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
                           {timeAgo(entry.item.createdAt)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <QrActiveSwitch item={entry.item} onToggle={toggleActive} />
                         </td>
                         <td className="px-4 py-3">
                           <QuickPreviewButton onClick={() => setPreviewItem(entry.item)} />
