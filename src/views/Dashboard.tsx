@@ -81,13 +81,16 @@ type GroupItem =
   | { kind: 'group'; group: LinkGroup }
   | { kind: 'item'; group: LinkGroup; item: SavedQRCode };
 
-type SortKey = 'createdAt' | 'name' | 'scanCount';
+type SortKey = 'createdAt' | 'destination' | 'scanCount' | 'type';
 type StatusFilter = 'all' | 'active' | 'inactive';
+
+const TEXT_SORT_KEYS: SortKey[] = ['destination', 'type'];
 
 const DEFAULT_SORT_DIR: Record<SortKey, 'asc' | 'desc'> = {
   createdAt: 'desc',
-  name: 'asc',
+  destination: 'asc',
   scanCount: 'desc',
+  type: 'asc',
 };
 
 const compareItems = (
@@ -97,8 +100,11 @@ const compareItems = (
   sortDir: 'asc' | 'desc',
 ) => {
   const mult = sortDir === 'asc' ? 1 : -1;
-  if (sortBy === 'name') {
-    return a.name.localeCompare(b.name) * mult;
+  if (sortBy === 'type') {
+    return qrTypeLabel[a.type].localeCompare(qrTypeLabel[b.type]) * mult;
+  }
+  if (sortBy === 'destination') {
+    return (a.targetValue || a.value).localeCompare(b.targetValue || b.value) * mult;
   }
   const av = sortBy === 'createdAt' ? Date.parse(a.createdAt) : a.stats.scanCount;
   const bv = sortBy === 'createdAt' ? Date.parse(b.createdAt) : b.stats.scanCount;
@@ -759,18 +765,20 @@ function ToolbarSortDropdown({
   onSort: (key: SortKey) => void;
 }) {
   const SORT_OPTIONS: { key: SortKey; label: string }[] = [
-    { key: 'name', label: 'Name' },
+    { key: 'type', label: 'Type' },
+    { key: 'destination', label: 'Destination' },
     { key: 'scanCount', label: 'Scan count' },
     { key: 'createdAt', label: 'Created' },
   ];
-  const current = SORT_OPTIONS.find((o) => o.key === sortBy) ?? SORT_OPTIONS[2];
+  const current = SORT_OPTIONS.find((o) => o.key === sortBy) ?? SORT_OPTIONS[3];
   const dirIcon = sortDir === 'asc' ? 'lucide:arrow-up' : 'lucide:arrow-down';
+  const showAz = TEXT_SORT_KEYS.includes(current.key);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-muted">
           <Icon icon={dirIcon} className="h-4 w-4" />
-          {current.key === 'name' ? (
+          {showAz ? (
             <span>
               {current.label} <span className="text-muted-foreground">{sortDir === 'asc' ? 'A-Z' : 'Z-A'}</span>
             </span>
