@@ -83,14 +83,13 @@ type GroupItem =
   | { kind: 'group'; group: LinkGroup }
   | { kind: 'item'; group: LinkGroup; item: SavedQRCode };
 
-type SortKey = 'createdAt' | 'name' | 'scanCount' | 'uniqueVisitors';
+type SortKey = 'createdAt' | 'name' | 'scanCount';
 type StatusFilter = 'all' | 'active' | 'inactive';
 
 const DEFAULT_SORT_DIR: Record<SortKey, 'asc' | 'desc'> = {
   createdAt: 'desc',
   name: 'asc',
   scanCount: 'desc',
-  uniqueVisitors: 'desc',
 };
 
 const compareItems = (
@@ -103,18 +102,8 @@ const compareItems = (
   if (sortBy === 'name') {
     return a.name.localeCompare(b.name) * mult;
   }
-  const av =
-    sortBy === 'createdAt'
-      ? Date.parse(a.createdAt)
-      : sortBy === 'scanCount'
-        ? a.stats.scanCount
-        : a.stats.uniqueVisitors ?? 0;
-  const bv =
-    sortBy === 'createdAt'
-      ? Date.parse(b.createdAt)
-      : sortBy === 'scanCount'
-        ? b.stats.scanCount
-        : b.stats.uniqueVisitors ?? 0;
+  const av = sortBy === 'createdAt' ? Date.parse(a.createdAt) : a.stats.scanCount;
+  const bv = sortBy === 'createdAt' ? Date.parse(b.createdAt) : b.stats.scanCount;
   if (av < bv) return -1 * mult;
   if (av > bv) return 1 * mult;
   return 0;
@@ -623,35 +612,31 @@ function DisplayNameBadge({ item }: { item: SavedQRCode }) {
   );
 }
 
-function FolderBadges({
-  item,
-  folders,
-  hideFolderId,
-}: {
-  item: SavedQRCode;
-  folders: LinkFolder[];
-  hideFolderId?: string;
-}) {
-  const names = useMemo(() => {
-    const byId = new Map(folders.map((f) => [f.id, f.name]));
-    return (item.folderIds ?? [])
-      .filter((id) => id && id !== hideFolderId && byId.has(id))
-      .map((id) => byId.get(id) as string);
-  }, [item.folderIds, folders, hideFolderId]);
-
-  if (names.length === 0) {
-    return <span className="text-muted-foreground">—</span>;
-  }
-
-  const joined = names.join(', ');
+function QuickPreviewButton({ onClick }: { onClick: () => void }) {
   return (
-    <span
-      className="inline-flex max-w-full items-center gap-1 text-[13px] text-muted-foreground"
-      title={joined}
+    <Button
+      variant="ghost"
+      size="icon"
+      className="rounded-full"
+      title="Preview QR"
+      onClick={onClick}
     >
-      <Icon icon="lucide:folder" className="h-3.5 w-3.5 shrink-0" />
-      <span className="min-w-0 truncate">{joined}</span>
-    </span>
+      <Icon icon="lucide:qr-code" className="h-4 w-4" />
+    </Button>
+  );
+}
+
+function QuickCopyButton({ item, onCopy }: { item: SavedQRCode; onCopy: () => void }) {
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="rounded-full"
+      title={item.trackingUrl ? 'Copy short link' : 'Copy destination'}
+      onClick={onCopy}
+    >
+      <Icon icon="lucide:copy" className="h-4 w-4" />
+    </Button>
   );
 }
 
@@ -2607,21 +2592,10 @@ export default function Dashboard() {
                       />
                     </th>
                     <th className="px-4 py-3 font-medium">Destination</th>
-                    <th className="px-4 py-3 font-medium">Also in</th>
                     <th className="px-4 py-3 text-right font-medium">
                       <SortHeaderButton
                         label="Scans"
                         sortKey="scanCount"
-                        sortBy={sortBy}
-                        sortDir={sortDir}
-                        onSort={handleSort}
-                        align="right"
-                      />
-                    </th>
-                    <th className="px-4 py-3 text-right font-medium">
-                      <SortHeaderButton
-                        label="Unique"
-                        sortKey="uniqueVisitors"
                         sortBy={sortBy}
                         sortDir={sortDir}
                         onSort={handleSort}
@@ -2638,6 +2612,8 @@ export default function Dashboard() {
                       />
                     </th>
                     <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium">Preview</th>
+                    <th className="px-4 py-3 font-medium">Copy</th>
                     <th className="px-4 py-3 text-right font-medium">Actions</th>
                   </tr>
                 </thead>
@@ -2748,24 +2724,20 @@ export default function Dashboard() {
                         >
                           {formatDestinationSummary(entry.item.targetValue || entry.item.value)}
                         </td>
-                        <td className="max-w-[160px] px-4 py-3">
-                          <FolderBadges
-                            item={entry.item}
-                            folders={folders}
-                            hideFolderId={entry.group.folder?.id}
-                          />
-                        </td>
                         <td className="px-4 py-3 text-right font-medium tabular-nums">
                           {entry.item.stats.scanCount}
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
-                          {entry.item.stats.uniqueVisitors ?? 0}
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
                           {timeAgo(entry.item.createdAt)}
                         </td>
                         <td className="px-4 py-3">
                           <QrActiveSwitch item={entry.item} onToggle={toggleActive} />
+                        </td>
+                        <td className="px-4 py-3">
+                          <QuickPreviewButton onClick={() => setPreviewItem(entry.item)} />
+                        </td>
+                        <td className="px-4 py-3">
+                          <QuickCopyButton item={entry.item} onCopy={() => copyShortLink(entry.item)} />
                         </td>
                         <td className="px-4 py-3">
                           <RowActionMenu item={entry.item} {...getRowHandlers(entry.item)} />
@@ -2871,18 +2843,13 @@ export default function Dashboard() {
                     >
                       {formatDestinationSummary(entry.item.targetValue || entry.item.value)}
                     </span>
-                    {(entry.item.folderIds ?? []).some((id) => id !== entry.group.folder?.id) ? (
-                      <span className="max-w-[5rem] sm:max-w-[10rem]">
-                        <FolderBadges
-                          item={entry.item}
-                          folders={folders}
-                          hideFolderId={entry.group.folder?.id}
-                        />
-                      </span>
-                    ) : null}
                     <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
                       {entry.item.stats.scanCount} scans · {timeAgo(entry.item.stats.lastScannedAt)}
                     </span>
+                    <div className="shrink-0">
+                      <QuickPreviewButton onClick={() => setPreviewItem(entry.item)} />
+                      <QuickCopyButton item={entry.item} onCopy={() => copyShortLink(entry.item)} />
+                    </div>
                     <RowActionMenu item={entry.item} {...getRowHandlers(entry.item)} />
                   </li>
                 ),
