@@ -749,14 +749,20 @@ function ToolbarSortDropdown({
     { key: 'scanCount', label: 'Scan count' },
     { key: 'createdAt', label: 'Created' },
   ];
-  const current = SORT_OPTIONS.find((o) => o.key === sortBy)?.label ?? '';
+  const current = SORT_OPTIONS.find((o) => o.key === sortBy) ?? SORT_OPTIONS[2];
+  const dirIcon = sortDir === 'asc' ? 'lucide:arrow-up' : 'lucide:arrow-down';
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-muted">
-          <Icon icon="lucide:arrow-up-down" className="h-4 w-4" />
-          Sort
-          <span className="text-muted-foreground">{current}</span>
+          <Icon icon={dirIcon} className="h-4 w-4" />
+          {current.key === 'name' ? (
+            <span>
+              {current.label} <span className="text-muted-foreground">{sortDir === 'asc' ? 'A-Z' : 'Z-A'}</span>
+            </span>
+          ) : (
+            current.label
+          )}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-44">
