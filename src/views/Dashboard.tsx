@@ -2637,14 +2637,13 @@ export default function Dashboard() {
                     </th>
                     <th className="px-4 py-3 font-medium">Type</th>
                     <th className="px-4 py-3 font-medium">Destination</th>
-                    <th className="px-4 py-3 text-right font-medium">
+                    <th className="px-4 py-3 font-medium">
                       <SortHeaderButton
                         label="Scans"
                         sortKey="scanCount"
                         sortBy={sortBy}
                         sortDir={sortDir}
                         onSort={handleSort}
-                        align="right"
                       />
                     </th>
                     <th className="px-4 py-3 font-medium">
@@ -2776,7 +2775,7 @@ export default function Dashboard() {
                         >
                           {formatDestinationSummary(entry.item.targetValue || entry.item.value)}
                         </td>
-                        <td className="px-4 py-3 text-right font-medium tabular-nums">
+                        <td className="px-4 py-3 font-medium tabular-nums">
                           {entry.item.stats.scanCount}
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
