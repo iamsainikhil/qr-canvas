@@ -716,45 +716,6 @@ function RowActionMenu({ item, ...handlers }: { item: SavedQRCode } & QrRowActio
   );
 }
 
-function SortHeaderButton({
-  label,
-  sortKey,
-  sortBy,
-  sortDir,
-  onSort,
-  align = 'left',
-}: {
-  label: string;
-  sortKey: SortKey;
-  sortBy: SortKey;
-  sortDir: 'asc' | 'desc';
-  onSort: (key: SortKey) => void;
-  align?: 'left' | 'right';
-}) {
-  const active = sortBy === sortKey;
-  return (
-    <button
-      onClick={() => onSort(sortKey)}
-      className={`inline-flex items-center gap-1 font-medium transition-colors hover:text-foreground ${
-        align === 'right' ? 'flex-row-reverse' : ''
-      }`}
-      title={`Sort by ${label}`}
-    >
-      {label}
-      <Icon
-        icon={
-          !active
-            ? 'lucide:arrow-up-down'
-            : sortDir === 'asc'
-              ? 'lucide:arrow-up'
-              : 'lucide:arrow-down'
-        }
-        className="h-3.5 w-3.5"
-      />
-    </button>
-  );
-}
-
 function ToolbarSortDropdown({
   sortBy,
   sortDir,
@@ -2645,24 +2606,8 @@ export default function Dashboard() {
                     </th>
                     <th className="px-4 py-3 font-medium">Type</th>
                     <th className="px-4 py-3 font-medium">Destination</th>
-                    <th className="px-4 py-3 font-medium">
-                      <SortHeaderButton
-                        label="Scans"
-                        sortKey="scanCount"
-                        sortBy={sortBy}
-                        sortDir={sortDir}
-                        onSort={handleSort}
-                      />
-                    </th>
-                    <th className="px-4 py-3 font-medium">
-                      <SortHeaderButton
-                        label="Created"
-                        sortKey="createdAt"
-                        sortBy={sortBy}
-                        sortDir={sortDir}
-                        onSort={handleSort}
-                      />
-                    </th>
+                    <th className="px-4 py-3 font-medium">Scans</th>
+                    <th className="px-4 py-3 font-medium">Created</th>
                     <th className="px-4 py-3 font-medium">Preview</th>
                     <th className="px-4 py-3 font-medium">Copy</th>
                     <th className="px-4 py-3 text-right font-medium">Actions</th>
