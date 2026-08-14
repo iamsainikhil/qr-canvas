@@ -735,6 +735,64 @@ function SortHeaderButton({
   );
 }
 
+function ToolbarSortDropdown({
+  sortBy,
+  sortDir,
+  onSort,
+}: {
+  sortBy: SortKey;
+  sortDir: 'asc' | 'desc';
+  onSort: (key: SortKey) => void;
+}) {
+  const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+    { key: 'name', label: 'Name' },
+    { key: 'scanCount', label: 'Scan count' },
+    { key: 'createdAt', label: 'Created' },
+  ];
+  const current = SORT_OPTIONS.find((o) => o.key === sortBy)?.label ?? '';
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-muted">
+          <Icon icon="lucide:arrow-up-down" className="h-4 w-4" />
+          Sort
+          <span className="text-muted-foreground">{current}</span>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-44">
+        {SORT_OPTIONS.map((option) => {
+          const active = sortBy === option.key;
+          return (
+            <DropdownMenuItem
+              key={option.key}
+              onSelect={() => onSort(option.key)}
+              className={active ? 'font-medium text-foreground' : undefined}
+            >
+              <Icon
+                icon={
+                  active
+                    ? sortDir === 'asc'
+                      ? 'lucide:arrow-up'
+                      : 'lucide:arrow-down'
+                    : DEFAULT_SORT_DIR[option.key] === 'asc'
+                      ? 'lucide:arrow-up'
+                      : 'lucide:arrow-down'
+                }
+                className="h-4 w-4 text-muted-foreground"
+              />
+              {option.label}
+              <Icon
+                icon={active ? 'lucide:check' : 'lucide:minus'}
+                className="ml-auto h-4 w-4 text-muted-foreground"
+              />
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function PaginationControls({
   page,
   totalPages,
@@ -2468,6 +2526,7 @@ export default function Dashboard() {
               </button>
             ))}
           </div>
+          <ToolbarSortDropdown sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
         </section>
 
         {selected.size > 0 && (
