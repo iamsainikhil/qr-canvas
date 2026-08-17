@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { signOut } from 'firebase/auth';
 import { Icon } from '@iconify/react';import { firebaseAuth } from '@/integrations/firebase/client';
@@ -35,6 +35,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
@@ -64,8 +65,9 @@ import {
   updateQrCodeDestinationForOwner,
 } from '@/lib/firestoreQrCodes';
 import { getCurrentOwnerUid } from '@/lib/authOwner';
+import { cn } from '@/lib/utils';
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE_OPTIONS = [10, 15, 25, 50, 100];
 const MAX_SELECTION = 50;
 const UNCATEGORIZED_KEY = '__uncategorized__';
 
@@ -84,13 +86,23 @@ type GroupItem =
 type SortKey = 'createdAt' | 'destination' | 'scanCount' | 'type';
 type StatusFilter = 'all' | 'active' | 'inactive';
 
-const TEXT_SORT_KEYS: SortKey[] = ['destination', 'type'];
-
 const DEFAULT_SORT_DIR: Record<SortKey, 'asc' | 'desc'> = {
   createdAt: 'desc',
   destination: 'asc',
   scanCount: 'desc',
   type: 'asc',
+};
+
+const sortDirLabel = (key: SortKey, dir: 'asc' | 'desc') => {
+  switch (key) {
+    case 'createdAt':
+      return dir === 'desc' ? 'Newest first' : 'Oldest first';
+    case 'scanCount':
+      return dir === 'desc' ? 'Most scans' : 'Fewest scans';
+    case 'destination':
+    case 'type':
+      return dir === 'asc' ? 'A-Z' : 'Z-A';
+  }
 };
 
 const compareItems = (
@@ -620,10 +632,10 @@ const QR_TYPE_ICONS: Record<QRType, string> = {
 function QrTypeBadge({ item }: { item: SavedQRCode }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium"
+      className="inline-flex items-center gap-1.5 rounded-full border border-border/30 bg-secondary px-2 py-0.5 text-xs font-bold shadow-sm"
       title={`${qrTypeLabel[item.type]}${item.active ? '' : ' · inactive'}`}
     >
-      <Icon icon={QR_TYPE_ICONS[item.type]} className="h-3.5 w-3.5 text-muted-foreground" />
+      <Icon icon={QR_TYPE_ICONS[item.type]} className="h-3 w-3 text-muted-foreground" />
       {qrTypeLabel[item.type]}
       {!item.active && <span className="h-1.5 w-1.5 rounded-full bg-destructive" />}
     </span>
@@ -635,11 +647,11 @@ function QuickPreviewButton({ onClick }: { onClick: () => void }) {
     <Button
       variant="ghost"
       size="icon"
-      className="rounded-full"
+      className="h-7 w-7 rounded-lg hover:bg-transparent"
       title="Preview QR"
       onClick={onClick}
     >
-      <Icon icon="lucide:qr-code" className="h-4 w-4" />
+      <Icon icon="lucide:qr-code" className="h-3.5 w-3.5" />
     </Button>
   );
 }
@@ -649,11 +661,11 @@ function QuickCopyButton({ item, onCopy }: { item: SavedQRCode; onCopy: () => vo
     <Button
       variant="ghost"
       size="icon"
-      className="rounded-full"
+      className="h-7 w-7 rounded-lg hover:bg-transparent"
       title={item.trackingUrl ? 'Copy short link' : 'Copy destination'}
       onClick={onCopy}
     >
-      <Icon icon="lucide:copy" className="h-4 w-4" />
+      <Icon icon="lucide:copy" className="h-3.5 w-3.5" />
     </Button>
   );
 }
@@ -674,11 +686,11 @@ function RowActionMenu({ item, ...handlers }: { item: SavedQRCode } & QrRowActio
         <Button
           variant="ghost"
           size="icon"
-          className="rounded-full"
+          className="h-7 w-7 rounded-lg hover:bg-transparent"
           title="Actions"
           aria-label={`Actions for ${item.name}`}
         >
-          <Icon icon="lucide:ellipsis-vertical" className="h-4 w-4" />
+          <Icon icon="lucide:ellipsis-vertical" className="h-3.5 w-3.5" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
@@ -732,25 +744,27 @@ function ToolbarSortDropdown({
     { key: 'createdAt', label: 'Created' },
   ];
   const current = SORT_OPTIONS.find((o) => o.key === sortBy) ?? SORT_OPTIONS[3];
-  const dirIcon = sortDir === 'asc' ? 'lucide:arrow-up' : 'lucide:arrow-down';
-  const showAz = TEXT_SORT_KEYS.includes(current.key);
+  const dirIcon = sortDir === 'desc' ? 'lucide:arrow-down-narrow-wide' : 'lucide:arrow-up-narrow-wide';
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-muted">
+        <button className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-border bg-transparent px-4 text-xs font-bold text-foreground transition-colors hover:bg-secondary">
           <Icon icon={dirIcon} className="h-4 w-4" />
-          {showAz ? (
-            <span>
-              {current.label} <span className="text-muted-foreground">{sortDir === 'asc' ? 'A-Z' : 'Z-A'}</span>
-            </span>
-          ) : (
-            current.label
-          )}
+          <span className="hidden md:inline">
+            Sorted by {current.label} · {sortDirLabel(current.key, sortDir)}
+          </span>
+          <span className="md:hidden">
+            {current.label} · {sortDirLabel(current.key, sortDir)}
+          </span>
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-44">
+      <DropdownMenuContent align="start" className="w-64">
+        <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+          Sort by
+        </div>
         {SORT_OPTIONS.map((option) => {
           const active = sortBy === option.key;
+          const dir: 'asc' | 'desc' = active ? sortDir : DEFAULT_SORT_DIR[option.key];
           return (
             <DropdownMenuItem
               key={option.key}
@@ -758,25 +772,37 @@ function ToolbarSortDropdown({
               className={active ? 'font-medium text-foreground' : undefined}
             >
               <Icon
-                icon={
-                  active
-                    ? sortDir === 'asc'
-                      ? 'lucide:arrow-up'
-                      : 'lucide:arrow-down'
-                    : DEFAULT_SORT_DIR[option.key] === 'asc'
-                      ? 'lucide:arrow-up'
-                      : 'lucide:arrow-down'
-                }
-                className="h-4 w-4 text-muted-foreground"
+                icon={dir === 'desc' ? 'lucide:arrow-down-narrow-wide' : 'lucide:arrow-up-narrow-wide'}
+                className={cn('h-4 w-4', active ? 'text-accent' : 'text-muted-foreground/60')}
               />
-              {option.label}
+              <span className="flex-1 truncate">{option.label}</span>
+              <span
+                className={cn(
+                  'text-[10px] font-bold',
+                  active ? 'text-accent' : 'text-muted-foreground',
+                )}
+              >
+                {sortDirLabel(option.key, dir)}
+              </span>
               <Icon
-                icon={active ? 'lucide:check' : 'lucide:minus'}
-                className="ml-auto h-4 w-4 text-muted-foreground"
+                icon={active ? 'lucide:check' : 'lucide:chevron-right'}
+                className="ml-1 h-3.5 w-3.5 text-muted-foreground"
               />
             </DropdownMenuItem>
           );
         })}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => onSort(sortBy)}>
+          <Icon
+            icon={sortDir === 'desc' ? 'lucide:arrow-down' : 'lucide:arrow-up'}
+            className="h-4 w-4 text-muted-foreground"
+          />
+          <span className="flex-1 truncate">Direction</span>
+          <span className="text-[10px] font-bold text-muted-foreground">
+            {sortDirLabel(sortBy, sortDir)}
+          </span>
+          <Icon icon="lucide:repeat" className="ml-1 h-3.5 w-3.5 text-muted-foreground" />
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -785,22 +811,63 @@ function ToolbarSortDropdown({
 function PaginationControls({
   page,
   totalPages,
+  pageSize,
+  totalItems,
   onPageChange,
+  onPageSizeChange,
 }: {
   page: number;
   totalPages: number;
+  pageSize: number;
+  totalItems: number;
   onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
 }) {
+  const startItem = totalItems === 0 ? 0 : page * pageSize + 1;
+  const endItem = Math.min(totalItems, (page + 1) * pageSize);
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-xs text-muted-foreground">
-      <span>
-        Page {page + 1} of {totalPages}
-      </span>
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-muted/20 px-6 py-3">
+      <div className="flex items-center gap-3">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="inline-flex h-8 items-center gap-2 rounded-full border border-border bg-card px-3 text-[10px] font-bold text-foreground transition-colors hover:bg-secondary">
+              <span className="tabular-nums">{pageSize} / page</span>
+              <Icon icon="lucide:chevron-down" className="h-3 w-3 text-muted-foreground" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-32">
+            {PAGE_SIZE_OPTIONS.map((option) => (
+              <DropdownMenuItem
+                key={option}
+                onSelect={() => onPageSizeChange(option)}
+                className={pageSize === option ? 'font-medium text-foreground' : undefined}
+              >
+                <span className="flex-1 tabular-nums">{option} items</span>
+                {pageSize === option && (
+                  <Icon icon="lucide:check" className="h-3.5 w-3.5 text-accent" />
+                )}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground tabular-nums">
+          {totalItems === 0 ? '0 items' : `${startItem}–${endItem} of ${totalItems}`}
+        </span>
+      </div>
       <div className="flex items-center gap-2">
         <Button
           variant="outline"
           size="sm"
-          className="rounded-full"
+          className="h-8 rounded-full px-3 text-[10px] font-bold"
+          disabled={page === 0}
+          onClick={() => onPageChange(0)}
+        >
+          <Icon icon="lucide:chevrons-left" className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 rounded-full px-3 text-[10px] font-bold"
           disabled={page === 0}
           onClick={() => onPageChange(Math.max(0, page - 1))}
         >
@@ -810,12 +877,21 @@ function PaginationControls({
         <Button
           variant="outline"
           size="sm"
-          className="rounded-full"
+          className="h-8 rounded-full px-3 text-[10px] font-bold"
           disabled={page >= totalPages - 1}
           onClick={() => onPageChange(Math.min(totalPages - 1, page + 1))}
         >
           Next
           <Icon icon="lucide:chevron-right" className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 rounded-full px-3 text-[10px] font-bold"
+          disabled={page >= totalPages - 1}
+          onClick={() => onPageChange(totalPages - 1)}
+        >
+          <Icon icon="lucide:chevrons-right" className="h-3.5 w-3.5" />
         </Button>
       </div>
     </div>
@@ -899,11 +975,10 @@ function FolderPicker({
             {matches.map((folder) => (
               <li key={folder.id}>
                 <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-foreground transition-colors hover:bg-secondary">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={value.includes(folder.id)}
-                    onChange={() => toggle(folder.id)}
-                    className="h-4 w-4 shrink-0 accent-primary"
+                    onCheckedChange={() => toggle(folder.id)}
+                    className="h-4 w-4 shrink-0"
                   />
                   <Icon icon="lucide:folder" className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <span className="min-w-0 truncate">{folder.name}</span>
@@ -1496,9 +1571,12 @@ export default function Dashboard() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTIONS[0]);
   const [sortBy, setSortBy] = useState<SortKey>('createdAt');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [activeFolderKey, setActiveFolderKey] = useState<string>('all');
+  const [foldersCollapsed, setFoldersCollapsed] = useState(false);
   const [analyticsItem, setAnalyticsItem] = useState<SavedQRCode | null>(null);
   const [scanEvents, setScanEvents] = useState<ScanEvent[]>([]);
   const [scanEventsLoading, setScanEventsLoading] = useState(false);
@@ -1511,7 +1589,6 @@ export default function Dashboard() {
   const [bulkFolderOpen, setBulkFolderOpen] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
-  const selectAllRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const ownerUid = useMemo(() => getCurrentOwnerUid(), []);
 
@@ -1566,7 +1643,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     setPage(0);
-  }, [query, statusFilter, sortBy, sortDir]);
+  }, [query, statusFilter, sortBy, sortDir, activeFolderKey]);
 
   const handleSort = (key: SortKey) => {
     if (key === sortBy) {
@@ -1632,8 +1709,13 @@ export default function Dashboard() {
 
     const result = folderGroups;
     if (uncategorized.items.length > 0) result.push(uncategorized);
-    return result;
-  }, [items, orderedFolders, query, statusFilter, sortBy, sortDir]);
+
+    if (activeFolderKey === 'all') return result;
+    if (activeFolderKey === UNCATEGORIZED_KEY) {
+      return result.filter((group) => group.key === UNCATEGORIZED_KEY);
+    }
+    return result.filter((group) => group.key === activeFolderKey);
+  }, [items, orderedFolders, query, statusFilter, sortBy, sortDir, activeFolderKey]);
 
   const groupItems = useMemo(() => {
     const list: GroupItem[] = [];
@@ -1652,6 +1734,19 @@ export default function Dashboard() {
     [groupItems],
   );
 
+  const folderCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    let uncategorized = 0;
+    for (const item of items) {
+      const memberIds = (item.folderIds ?? []).filter((id) =>
+        orderedFolders.some((folder) => folder.id === id),
+      );
+      if (memberIds.length === 0) uncategorized += 1;
+      for (const id of memberIds) counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+    return { counts, uncategorized };
+  }, [items, orderedFolders]);
+
   const linkRanges = useMemo(() => {
     const ranges: ({ start: number; end: number } | null)[] = [];
     let running = 0;
@@ -1668,13 +1763,13 @@ export default function Dashboard() {
     return ranges;
   }, [groupItems]);
 
-  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const safePage = Math.min(page, totalPages - 1);
 
   const pageItems = useMemo(() => {
     if (groupItems.length === 0) return groupItems;
-    const startLink = safePage * PAGE_SIZE;
-    const endLink = Math.min(totalItems, startLink + PAGE_SIZE);
+    const startLink = safePage * pageSize;
+    const endLink = Math.min(totalItems, startLink + pageSize);
     if (startLink >= endLink) return [];
 
     const result: GroupItem[] = [];
@@ -1687,7 +1782,7 @@ export default function Dashboard() {
           const groupPage =
             totalItems === 0
               ? 0
-              : Math.min(Math.floor(range.start / PAGE_SIZE), totalPages - 1);
+              : Math.min(Math.floor(range.start / pageSize), totalPages - 1);
           if (safePage === groupPage) result.push(entry);
         } else if (range && range.start < endLink && range.end > startLink) {
           result.push(entry);
@@ -1700,7 +1795,7 @@ export default function Dashboard() {
       }
     }
     return result;
-  }, [groupItems, linkRanges, safePage, totalItems, totalPages]);
+  }, [groupItems, linkRanges, safePage, totalItems, totalPages, pageSize]);
 
   const pageIds = useMemo(
     () =>
@@ -1710,19 +1805,8 @@ export default function Dashboard() {
     [pageItems],
   );
 
-  const visibleMatches = useMemo(
-    () => groups.reduce((count, group) => count + group.items.length, 0),
-    [groups],
-  );
-
   const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
   const somePageSelected = pageIds.some((id) => selected.has(id)) && !allPageSelected;
-
-  useEffect(() => {
-    if (selectAllRef.current) {
-      selectAllRef.current.indeterminate = somePageSelected;
-    }
-  }, [somePageSelected]);
 
   const allSelectedActive = useMemo(() => {
     const ids = new Set(selected);
@@ -2401,16 +2485,27 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background pb-10">
-      {/* Full-width header */}
-      <header className="border-b border-border bg-card">
-        <div className="flex w-full flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+      <div className="grain-overlay" />
+      {/* Global Header */}
+      <header className="border-b border-border bg-card z-30">
+        <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-3">
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Dashboard</p>
-              <h1 className="font-heading text-2xl font-bold text-foreground sm:text-3xl">Saved QR Codes</h1>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Dashboard</p>
+              <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">Saved QR Codes</h1>
             </div>
           </div>
           <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
+            <div className="mr-6 flex items-center gap-4 border-r border-border px-4 py-1">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold uppercase text-muted-foreground">Total Codes</span>
+                <span className="text-sm font-bold tabular-nums">{items.length}</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold uppercase text-muted-foreground">Total Scans</span>
+                <span className="text-sm font-bold tabular-nums text-accent">{totalScans}</span>
+              </div>
+            </div>
             <ThemeToggle />
             <Button asChild variant="outline" className="rounded-full">
               <Link href="/" className="inline-flex items-center gap-2">
@@ -2439,433 +2534,547 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 pt-6 sm:px-6 lg:px-8">
-        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Total saved</CardDescription>
-              <CardTitle className="text-3xl">{items.length}</CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Total scans</CardDescription>
-              <CardTitle className="text-3xl">{totalScans}</CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Search results</CardDescription>
-              <CardTitle className="text-3xl">{visibleMatches}</CardTitle>
-            </CardHeader>
-          </Card>
-          <Card className="border-accent/30 bg-accent/5">
-            <CardHeader className="pb-2">
-              <CardDescription>Top scanned</CardDescription>
-              <div className="min-h-[36px]">
-                {topItem && topItem.stats.scanCount > 0 ? (
-                  <div>
-                    <CardTitle className="truncate text-base font-semibold" title={topItem.name}>{topItem.name}</CardTitle>
-                    <CardDescription>{topItem.stats.scanCount} scan{topItem.stats.scanCount !== 1 ? 's' : ''}</CardDescription>
-                  </div>
-                ) : (
-                  <CardTitle className="text-base font-semibold text-muted-foreground">No scans yet</CardTitle>
-                )}
+      <main className="mx-auto flex w-full max-w-[1600px] flex-col gap-6 px-4 py-6 sm:px-6 lg:flex-row lg:items-start lg:px-8">
+        {/* Left Pane: Folder Navigation */}
+        <aside
+          className={cn(
+            'w-full shrink-0 flex-col gap-6 lg:flex',
+            foldersCollapsed ? 'lg:w-auto' : 'lg:w-72',
+          )}
+        >
+          <div className={cn('flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-paper', foldersCollapsed && 'w-fit')}>
+            <div className="flex items-center justify-between border-b border-border bg-muted/20 p-4">
+              <div className="flex min-w-0 items-center gap-2">
+                <button
+                  onClick={() => setFoldersCollapsed((v) => !v)}
+                  className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-muted"
+                  title={foldersCollapsed ? 'Expand folders' : 'Collapse folders'}
+                  aria-label={foldersCollapsed ? 'Expand folders' : 'Collapse folders'}
+                  aria-expanded={!foldersCollapsed}
+                >
+                  <Icon
+                    icon={foldersCollapsed ? 'lucide:chevron-right' : 'lucide:chevron-left'}
+                    className="h-4 w-4"
+                  />
+                </button>
+                <h2 className={cn('truncate text-xs font-bold uppercase tracking-wider text-muted-foreground', foldersCollapsed && 'hidden')}>
+                  Folders
+                </h2>
               </div>
-            </CardHeader>
-          </Card>
-        </section>
-
-        <section className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Icon
-              icon="lucide:search"
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-            />
-            <Input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search by name, type, or QR value"
-              className="h-11 w-full rounded-full pl-9"
-            />
-          </div>
-          <Button
-            variant="outline"
-            className="shrink-0 rounded-full"
-            onClick={() => setFolderCreateOpen(true)}
-          >
-            <Icon icon="lucide:folder-plus" className="h-4 w-4" />
-            New folder
-          </Button>
-        </section>
-
-        <section className="flex flex-wrap items-center gap-2">
-          <div className="ml-auto flex items-center rounded-full border border-border">
-            {(['all', 'active', 'inactive'] as const).map((filter) => (
+              {!foldersCollapsed && (
+                <button
+                  onClick={() => setFolderCreateOpen(true)}
+                  className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted"
+                  title="New Folder"
+                  aria-label="New folder"
+                >
+                  <Icon icon="lucide:folder-plus" className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            {!foldersCollapsed && (
+              <nav className="flex-1 py-2">
               <button
-                key={filter}
-                onClick={() => setStatusFilter(filter)}
-                className={`px-3 py-1.5 text-sm first:rounded-l-full last:rounded-r-full transition-colors ${
-                  statusFilter === filter
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
+                onClick={() => setActiveFolderKey('all')}
+                aria-label="View all QR codes"
+                className={cn(
+                  'mx-2 flex w-[calc(100%-1rem)] items-center justify-between gap-3 rounded-xl border border-transparent px-4 py-2.5 text-sm font-medium text-foreground transition-colors',
+                  activeFolderKey === 'all' ? 'bg-secondary' : 'hover:bg-muted/50',
+                )}
               >
-                {filter === 'all' ? 'All' : filter === 'active' ? 'Active' : 'Inactive'}
+                <span className="flex min-w-0 items-center gap-3">
+                  <Icon icon="lucide:layout-grid" className="h-4 w-4 shrink-0 text-accent" />
+                  <span className="truncate">All Codes</span>
+                </span>
+                <span className="rounded-full bg-muted/50 px-2 py-0.5 text-xs tabular-nums text-muted-foreground">
+                  {items.length}
+                </span>
               </button>
-            ))}
-          </div>
-          <ToolbarSortDropdown sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
-        </section>
 
-        {selected.size > 0 && (
-          <section className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card/95 px-4 py-3 shadow-md backdrop-blur">
-            <span className="text-sm font-medium text-foreground">
-              {selected.size} selected
-            </span>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button variant="ghost" size="sm" className="rounded-full" onClick={clearSelection}>
-                Clear
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-full"
-                onClick={() => setBulkFolderOpen(true)}
-              >
-                <Icon icon="lucide:folder-move" className="h-4 w-4" />
-                Folders…
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-full"
-                onClick={() => void bulkSetActive(!allSelectedActive)}
-              >
-                <Icon icon={allSelectedActive ? 'lucide:power-off' : 'lucide:power'} className="h-4 w-4" />
-                {allSelectedActive ? 'Deactivate' : 'Activate'}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-full text-destructive"
-                onClick={() => setBulkDeleteOpen(true)}
-              >
-                <Icon icon="lucide:trash-2" className="h-4 w-4" />
-                Delete
-              </Button>
-            </div>
-          </section>
-        )}
-
-        {loading ? (
-          <Card>
-            <CardContent className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
-              <Icon icon="bx:loader-circle" className="h-4 w-4 animate-spin" />
-              Loading saved QR codes
-            </CardContent>
-          </Card>
-        ) : groups.length === 0 ? (
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-              <div className="rounded-full bg-secondary p-3">
-                <Icon icon="lucide:folder-open" className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <h2 className="font-heading text-xl font-bold text-foreground">
-                {items.length === 0 ? 'No saved QR codes yet' : 'No matching QR codes'}
-              </h2>
-              <p className="max-w-md text-sm text-muted-foreground">
-                {items.length === 0
-                  ? 'Go to the creator, generate a QR code, and click Save to start building your dashboard library.'
-                  : 'Try a different search or status filter.'}
-              </p>
-              <Button asChild className="rounded-full">
-                <Link href="/">Create first QR</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="overflow-hidden">
-            <div className="hidden overflow-x-auto lg:block">
-              <table className="w-full min-w-[1100px] text-left text-sm">
-                <thead className="border-b border-border bg-muted/40 text-xs text-muted-foreground">
-                  <tr className="group">
-                    <th className="px-4 py-3">
-                      <input
-                        ref={selectAllRef}
-                        type="checkbox"
-                        checked={allPageSelected}
-                        onChange={toggleSelectAllOnPage}
-                        aria-label="Select all QR codes on this page"
-                        className={`h-4 w-4 accent-primary transition-opacity ${
-                          allPageSelected || somePageSelected
-                            ? 'opacity-100'
-                            : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
-                        }`}
-                      />
-                    </th>
-                    <th className="px-4 py-3 font-medium">Type</th>
-                    <th className="px-4 py-3 font-medium">Destination</th>
-                    <th className="px-4 py-3 font-medium">Scans</th>
-                    <th className="px-4 py-3 font-medium">Created</th>
-                    <th className="px-4 py-3 font-medium">Preview</th>
-                    <th className="px-4 py-3 font-medium">Copy</th>
-                    <th className="px-4 py-3 text-right font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pageItems.map((entry) =>
-                    entry.kind === 'group' ? (
-                      <tr
-                        key={`group-${entry.group.key}`}
-                        className="group border-y border-border bg-muted/20"
-                      >
-                        <td colSpan={8} className="px-4 py-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <input
-                                ref={(el) => {
-                                  if (el) el.indeterminate = groupSomeSelected(entry.group);
-                                }}
-                                type="checkbox"
-                                checked={groupAllSelected(entry.group)}
-                                onChange={() => toggleGroupSelection(entry.group)}
-                                disabled={entry.group.items.length === 0}
-                                aria-label={`Select all QR codes in ${entry.group.title}`}
-                                className={`h-4 w-4 accent-primary transition-opacity disabled:opacity-30 ${
-                                  groupSomeSelected(entry.group) || groupAllSelected(entry.group)
-                                    ? 'opacity-100'
-                                    : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
-                                }`}
-                              />
-                              <button
-                                onClick={() => toggleCollapsed(entry.group.key)}
-                                className="group inline-flex items-center gap-2 text-sm font-semibold text-foreground"
-                                aria-expanded={!collapsed.has(entry.group.key)}
-                              >
-                                <Icon
-                                  icon={
-                                    collapsed.has(entry.group.key)
-                                      ? 'lucide:chevron-right'
-                                      : 'lucide:chevron-down'
-                                  }
-                                  className="h-4 w-4 text-muted-foreground transition-transform"
-                                />
-                                <Icon
-                                  icon={entry.group.icon}
-                                  className="h-4 w-4 text-muted-foreground"
-                                />
-                                {entry.group.title}
-                                <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
-                                  {entry.group.items.length}
-                                </span>
-                                {entry.group.folder && entry.group.items.length === 0 && (
-                                  <span className="text-xs font-normal text-muted-foreground">
-                                    No QR codes yet
-                                  </span>
-                                )}
-                              </button>
-                            </div>
-                            {entry.group.folder ? (
-                              <div className="flex items-center gap-1">
-                                <button
-                                  aria-label={`Move folder ${entry.group.folder.name} up`}
-                                  title="Move folder up"
-                                  disabled={isFirstFolder(entry.group.folder)}
-                                  onClick={() => moveFolder(entry.group.folder, -1)}
-                                  className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
-                                >
-                                  <Icon icon="lucide:arrow-up" className="h-4 w-4" />
-                                </button>
-                                <button
-                                  aria-label={`Move folder ${entry.group.folder.name} down`}
-                                  title="Move folder down"
-                                  disabled={isLastFolder(entry.group.folder)}
-                                  onClick={() => moveFolder(entry.group.folder, 1)}
-                                  className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
-                                >
-                                  <Icon icon="lucide:arrow-down" className="h-4 w-4" />
-                                </button>
-                                <button
-                                  aria-label={`Delete folder ${entry.group.folder.name}`}
-                                  title="Delete folder"
-                                  onClick={() => setFolderToDelete(entry.group.folder)}
-                                  className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
-                                >
-                                  <Icon icon="lucide:trash-2" className="h-4 w-4" />
-                                </button>
-                              </div>
-                            ) : null}
-                          </div>
-                        </td>
-                      </tr>
-                    ) : (
-                      <tr
-                        key={`${entry.group.key}-${entry.item.id}`}
-                        className={`group transition-colors ${
-                          selected.has(entry.item.id) ? 'bg-muted/40' : 'hover:bg-muted/30'
-                        }`}
-                      >
-                        <td className="px-4 py-3">
-                          <input
-                            type="checkbox"
-                            checked={selected.has(entry.item.id)}
-                            onChange={() => toggleSelected(entry.item.id)}
-                            aria-label={`Select ${entry.item.name}`}
-                            className={`h-4 w-4 accent-primary transition-opacity ${
-                              selected.has(entry.item.id)
-                                ? 'opacity-100'
-                                : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
-                            }`}
-                          />
-                        </td>
-                        <td className="px-4 py-3">
-                          <QrTypeBadge item={entry.item} />
-                        </td>
-                        <td
-                          className="max-w-[200px] truncate px-4 py-3 text-muted-foreground"
-                          title={entry.item.targetValue || entry.item.value}
-                        >
-                          {formatDestinationSummary(entry.item.targetValue || entry.item.value)}
-                        </td>
-                        <td className="px-4 py-3 font-medium tabular-nums">
-                          {entry.item.stats.scanCount}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
-                          {timeAgo(entry.item.createdAt)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <QuickPreviewButton onClick={() => setPreviewItem(entry.item)} />
-                        </td>
-                        <td className="px-4 py-3">
-                          <QuickCopyButton item={entry.item} onCopy={() => copyShortLink(entry.item)} />
-                        </td>
-                        <td className="px-4 py-3">
-                          <RowActionMenu item={entry.item} {...getRowHandlers(entry.item)} />
-                        </td>
-                      </tr>
-                    ),
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <ul className="divide-y divide-border lg:hidden">
-              {pageItems.map((entry) =>
-                entry.kind === 'group' ? (
-                  <li
-                    key={`group-${entry.group.key}`}
-                    className="flex items-center justify-between gap-2 bg-muted/20 px-4 py-2"
-                  >
-                    <div className="flex min-w-0 items-center gap-2">
-                      <input
-                        ref={(el) => {
-                          if (el) el.indeterminate = groupSomeSelected(entry.group);
-                        }}
-                        type="checkbox"
-                        checked={groupAllSelected(entry.group)}
-                        onChange={() => toggleGroupSelection(entry.group)}
-                        disabled={entry.group.items.length === 0}
-                        aria-label={`Select all QR codes in ${entry.group.title}`}
-                        className="h-4 w-4 shrink-0 accent-primary disabled:opacity-30"
-                      />
+              {orderedFolders.map((folder) => {
+                const active = activeFolderKey === folder.id;
+                const count = folderCounts.counts.get(folder.id) ?? 0;
+                return (
+                  <div key={folder.id} className="group relative">
+                    <button
+                      onClick={() => setActiveFolderKey(folder.id)}
+                      aria-label={`View QR codes in ${folder.name}`}
+                      className={cn(
+                        'mx-2 flex w-[calc(100%-1rem)] items-center justify-between gap-3 rounded-xl border border-transparent px-4 py-2.5 text-sm font-medium text-foreground transition-colors',
+                        active ? 'bg-secondary' : 'hover:bg-muted/50',
+                      )}
+                    >
+                      <span className="flex min-w-0 items-center gap-3">
+                        <Icon icon="lucide:folder" className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span className="max-w-[120px] truncate">{folder.name}</span>
+                      </span>
+                      <span className="rounded-full bg-muted/50 px-2 py-0.5 text-xs tabular-nums text-muted-foreground transition-opacity group-hover:opacity-0">
+                        {count}
+                      </span>
+                    </button>
+                    <div className="absolute right-7 top-1/2 flex -translate-y-1/2 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                       <button
-                        onClick={() => toggleCollapsed(entry.group.key)}
-                        className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground"
+                        aria-label={`Move folder ${folder.name} up`}
+                        title="Move folder up"
+                        disabled={isFirstFolder(folder)}
+                        onClick={() => moveFolder(folder, -1)}
+                        className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
                       >
-                        <Icon
-                          icon={
-                            collapsed.has(entry.group.key)
-                              ? 'lucide:chevron-right'
-                              : 'lucide:chevron-down'
-                          }
-                          className="h-4 w-4 text-muted-foreground"
-                        />
-                        <Icon icon={entry.group.icon} className="h-4 w-4 shrink-0 text-muted-foreground" />
-                        <span className="min-w-0 truncate">{entry.group.title}</span>
-                        <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
-                          {entry.group.items.length}
-                        </span>
-                        {entry.group.folder && entry.group.items.length === 0 && (
-                          <span className="shrink-0 text-xs font-normal text-muted-foreground">
-                            No QR codes yet
-                          </span>
-                        )}
+                        <Icon icon="lucide:arrow-up" className="h-3 w-3" />
+                      </button>
+                      <button
+                        aria-label={`Move folder ${folder.name} down`}
+                        title="Move folder down"
+                        disabled={isLastFolder(folder)}
+                        onClick={() => moveFolder(folder, 1)}
+                        className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
+                      >
+                        <Icon icon="lucide:arrow-down" className="h-3 w-3" />
+                      </button>
+                      <button
+                        aria-label={`Delete folder ${folder.name}`}
+                        title="Delete folder"
+                        onClick={() => setFolderToDelete(folder)}
+                        className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
+                      >
+                        <Icon icon="lucide:trash-2" className="h-3 w-3" />
                       </button>
                     </div>
-                    {entry.group.folder ? (
-                      <div className="flex items-center gap-1">
-                        <button
-                          aria-label={`Move folder ${entry.group.folder.name} up`}
-                          title="Move folder up"
-                          disabled={isFirstFolder(entry.group.folder)}
-                          onClick={() => moveFolder(entry.group.folder, -1)}
-                          className="rounded-full p-1.5 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
+                  </div>
+                );
+              })}
+
+              <button
+                onClick={() => setActiveFolderKey(UNCATEGORIZED_KEY)}
+                aria-label="View uncategorized QR codes"
+                className={cn(
+                  'mx-2 flex w-[calc(100%-1rem)] items-center justify-between gap-3 rounded-xl border border-transparent px-4 py-2.5 text-sm font-medium text-foreground transition-colors',
+                  activeFolderKey === UNCATEGORIZED_KEY ? 'bg-secondary' : 'hover:bg-muted/50',
+                )}
+              >
+                <span className="flex min-w-0 items-center gap-3">
+                  <Icon icon="lucide:inbox" className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="truncate">Uncategorized</span>
+                </span>
+                <span className="rounded-full bg-muted/50 px-2 py-0.5 text-xs tabular-nums text-muted-foreground">
+                  {folderCounts.uncategorized}
+                </span>
+              </button>
+            </nav>
+            )}
+          </div>
+
+          {!foldersCollapsed && topItem && (
+            <div className="rounded-2xl border border-accent/20 bg-accent/5 p-4 shadow-paper text-foreground">
+              <h4 className="mb-2 text-[10px] font-bold uppercase tracking-wider text-accent">Top Performance</h4>
+              <p className="truncate text-sm font-bold" title={topItem.name}>{topItem.name}</p>
+              <p className="text-xs text-muted-foreground">
+                {topItem.stats.scanCount > 0
+                  ? `${topItem.stats.scanCount} scan${topItem.stats.scanCount !== 1 ? 's' : ''} · ${timeAgo(topItem.stats.lastScannedAt)}`
+                  : 'No scans yet'}
+              </p>
+            </div>
+          )}
+        </aside>
+
+        {/* Right Pane: Table & Controls */}
+        <div className="flex min-w-0 flex-1 flex-col gap-4">
+          {/* Unified Toolbar */}
+          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card p-2 shadow-paper">
+            <div className="relative min-w-[180px] flex-1">
+              <Icon
+                icon="lucide:search"
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              />
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search codes..."
+                className="h-10 w-full rounded-full border-transparent bg-muted/30 pl-9 pr-4 text-sm transition-all focus-visible:border-accent/20 focus-visible:bg-background focus-visible:ring-4 focus-visible:ring-accent/5"
+              />
+            </div>
+            <div className="hidden h-6 w-px bg-border sm:block" />
+            <div className="flex items-center rounded-full bg-muted/30 p-1">
+              {(['all', 'active', 'inactive'] as const).map((filter) => (
+                <button
+                  key={filter}
+                  onClick={() => setStatusFilter(filter)}
+                  className={`rounded-full px-4 py-1.5 text-xs font-bold transition-colors ${
+                    statusFilter === filter
+                      ? 'bg-card text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {filter === 'all' ? 'All' : filter === 'active' ? 'Active' : 'Inactive'}
+                </button>
+              ))}
+            </div>
+            <ToolbarSortDropdown sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
+            <Button
+              size="sm"
+              className="h-10 shrink-0 rounded-full px-4 text-xs font-bold"
+              variant={selected.size > 0 ? 'default' : 'outline'}
+              disabled={selected.size === 0}
+              onClick={() => setBulkFolderOpen(true)}
+              title="Select QR codes to run bulk actions"
+            >
+              <Icon icon="lucide:check-circle" className="h-4 w-4" />
+              Bulk Actions
+            </Button>
+          </div>
+
+          {/* Selection Bar */}
+          {selected.size > 0 && (
+            <section className="sticky top-4 z-20 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-accent bg-card px-6 py-2.5 shadow-paper-lg">
+              <span className="text-sm font-bold text-foreground">
+                {selected.size} item{selected.size === 1 ? '' : 's'} selected
+              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="ghost" size="sm" className="rounded-full text-xs font-bold" onClick={clearSelection}>
+                  Clear
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full text-xs font-bold"
+                  onClick={() => setBulkFolderOpen(true)}
+                >
+                  <Icon icon="lucide:folder-move" className="h-3.5 w-3.5" />
+                  Move
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full text-xs font-bold"
+                  onClick={() => void bulkSetActive(!allSelectedActive)}
+                >
+                  <Icon icon={allSelectedActive ? 'lucide:power-off' : 'lucide:power'} className="h-3.5 w-3.5" />
+                  {allSelectedActive ? 'Deactivate' : 'Activate'}
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="rounded-full text-xs font-bold"
+                  onClick={() => setBulkDeleteOpen(true)}
+                >
+                  <Icon icon="lucide:trash-2" className="h-3.5 w-3.5" />
+                  Delete
+                </Button>
+              </div>
+            </section>
+          )}
+
+          {loading ? (
+            <Card>
+              <CardContent className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
+                <Icon icon="bx:loader-circle" className="h-4 w-4 animate-spin" />
+                Loading saved QR codes
+              </CardContent>
+            </Card>
+          ) : groups.length === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+                <div className="rounded-full bg-secondary p-3">
+                  <Icon icon="lucide:folder-open" className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <h2 className="font-heading text-xl font-bold text-foreground">
+                  {items.length === 0 ? 'No saved QR codes yet' : 'No matching QR codes'}
+                </h2>
+                <p className="max-w-md text-sm text-muted-foreground">
+                  {items.length === 0
+                    ? 'Go to the creator, generate a QR code, and click Save to start building your dashboard library.'
+                    : 'Try a different search or status filter.'}
+                </p>
+                <Button asChild className="rounded-full">
+                  <Link href="/">Create first QR</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="overflow-hidden rounded-2xl border border-border bg-card shadow-paper">
+              <div className="hidden lg:block">
+                <table className="w-full table-fixed text-left text-xs">
+                  <thead className="border-b border-border bg-muted/40 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    <tr className="group">
+                      <th className="w-8 px-3 py-3 text-center">
+                        <Checkbox
+                          checked={somePageSelected ? 'indeterminate' : allPageSelected}
+                          onCheckedChange={toggleSelectAllOnPage}
+                          aria-label="Select all QR codes on this page"
+                          className={`h-3.5 w-3.5 transition-opacity ${
+                            allPageSelected || somePageSelected
+                              ? 'opacity-100'
+                              : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
+                          }`}
+                        />
+                      </th>
+                      <th className="w-24 px-3 py-3 font-bold">Type</th>
+                      <th className="px-3 py-3 font-bold">Destination</th>
+                      <th className="w-16 px-3 py-3 font-bold">Scans</th>
+                      <th className="w-24 px-3 py-3 font-bold">Created</th>
+                      <th className="w-24 px-3 py-3 pr-5 text-right font-bold">Tools</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pageItems.map((entry) =>
+                      entry.kind === 'group' ? (
+                        <tr
+                          key={`group-${entry.group.key}`}
+                          className="group border-y border-border bg-muted/10"
                         >
-                          <Icon icon="lucide:arrow-up" className="h-4 w-4" />
-                        </button>
-                        <button
-                          aria-label={`Move folder ${entry.group.folder.name} down`}
-                          title="Move folder down"
-                          disabled={isLastFolder(entry.group.folder)}
-                          onClick={() => moveFolder(entry.group.folder, 1)}
-                          className="rounded-full p-1.5 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
+                          <td colSpan={6} className="px-3 py-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  checked={
+                                    groupSomeSelected(entry.group)
+                                      ? 'indeterminate'
+                                      : groupAllSelected(entry.group)
+                                  }
+                                  onCheckedChange={() => toggleGroupSelection(entry.group)}
+                                  disabled={entry.group.items.length === 0}
+                                  aria-label={`Select all QR codes in ${entry.group.title}`}
+                                  className={`h-3.5 w-3.5 transition-opacity disabled:opacity-30 ${
+                                    groupSomeSelected(entry.group) || groupAllSelected(entry.group)
+                                      ? 'opacity-100'
+                                      : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
+                                  }`}
+                                />
+                                <button
+                                  onClick={() => toggleCollapsed(entry.group.key)}
+                                  className="group inline-flex items-center gap-2 text-xs font-bold text-foreground"
+                                  aria-expanded={!collapsed.has(entry.group.key)}
+                                >
+                                  <Icon
+                                    icon={
+                                      collapsed.has(entry.group.key)
+                                        ? 'lucide:chevron-right'
+                                        : 'lucide:chevron-down'
+                                    }
+                                    className="h-3.5 w-3.5 text-muted-foreground transition-transform"
+                                  />
+                                  <Icon
+                                    icon={entry.group.icon}
+                                    className="h-4 w-4 text-accent"
+                                  />
+                                  {entry.group.title}
+                                  <span className="text-[10px] tabular-nums text-muted-foreground">
+                                    {entry.group.items.length} code{entry.group.items.length === 1 ? '' : 's'}
+                                  </span>
+                                  {entry.group.folder && entry.group.items.length === 0 && (
+                                    <span className="text-[10px] font-normal text-muted-foreground">
+                                      No QR codes yet
+                                    </span>
+                                  )}
+                                </button>
+                              </div>
+                              {entry.group.folder ? (
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    aria-label={`Move folder ${entry.group.folder.name} up`}
+                                    title="Move folder up"
+                                    disabled={isFirstFolder(entry.group.folder)}
+                                    onClick={() => moveFolder(entry.group.folder, -1)}
+                                    className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
+                                  >
+                                    <Icon icon="lucide:arrow-up" className="h-3 w-3" />
+                                  </button>
+                                  <button
+                                    aria-label={`Move folder ${entry.group.folder.name} down`}
+                                    title="Move folder down"
+                                    disabled={isLastFolder(entry.group.folder)}
+                                    onClick={() => moveFolder(entry.group.folder, 1)}
+                                    className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
+                                  >
+                                    <Icon icon="lucide:arrow-down" className="h-3 w-3" />
+                                  </button>
+                                  <button
+                                    aria-label={`Delete folder ${entry.group.folder.name}`}
+                                    title="Delete folder"
+                                    onClick={() => setFolderToDelete(entry.group.folder)}
+                                    className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
+                                  >
+                                    <Icon icon="lucide:trash-2" className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              ) : null}
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        <tr
+                          key={`${entry.group.key}-${entry.item.id}`}
+                          className={`group transition-colors ${
+                            selected.has(entry.item.id) ? 'bg-muted/40' : 'hover:bg-muted/30'
+                          }`}
                         >
-                          <Icon icon="lucide:arrow-down" className="h-4 w-4" />
-                        </button>
+                          <td className="w-8 px-3 py-2.5 text-center">
+                            <Checkbox
+                              checked={selected.has(entry.item.id)}
+                              onCheckedChange={() => toggleSelected(entry.item.id)}
+                              aria-label={`Select ${entry.item.name}`}
+                              className={`h-3.5 w-3.5 cursor-pointer transition-opacity ${
+                                selected.has(entry.item.id)
+                                  ? 'opacity-100'
+                                  : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
+                              }`}
+                            />
+                          </td>
+                          <td className="w-24 px-3 py-2.5">
+                            <QrTypeBadge item={entry.item} />
+                          </td>
+                          <td className="min-w-0 px-3 py-2.5 text-muted-foreground">
+                            <div className="flex min-w-0 flex-col">
+                              <span className="truncate text-xs font-bold text-foreground" title={entry.item.name}>
+                                {entry.item.name}
+                              </span>
+                              <span className="truncate text-[10px]" title={entry.item.targetValue || entry.item.value}>
+                                {formatDestinationSummary(entry.item.targetValue || entry.item.value)}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="w-16 px-3 py-2.5 font-bold tabular-nums">
+                            {entry.item.stats.scanCount}
+                          </td>
+                          <td className="w-24 whitespace-nowrap px-3 py-2.5 text-muted-foreground">
+                            {timeAgo(entry.item.createdAt)}
+                          </td>
+                          <td className="w-24 px-3 py-2.5 pr-5 text-right">
+                            <div className="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                              <QuickPreviewButton onClick={() => setPreviewItem(entry.item)} />
+                              <QuickCopyButton item={entry.item} onCopy={() => copyShortLink(entry.item)} />
+                              <RowActionMenu item={entry.item} {...getRowHandlers(entry.item)} />
+                            </div>
+                          </td>
+                        </tr>
+                      ),
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <ul className="divide-y divide-border lg:hidden">
+                {pageItems.map((entry) =>
+                  entry.kind === 'group' ? (
+                    <li
+                      key={`group-${entry.group.key}`}
+                      className="flex items-center justify-between gap-2 bg-muted/20 px-4 py-2"
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Checkbox
+                          checked={
+                            groupSomeSelected(entry.group)
+                              ? 'indeterminate'
+                              : groupAllSelected(entry.group)
+                          }
+                          onCheckedChange={() => toggleGroupSelection(entry.group)}
+                          disabled={entry.group.items.length === 0}
+                          aria-label={`Select all QR codes in ${entry.group.title}`}
+                          className="h-4 w-4 shrink-0 disabled:opacity-30"
+                        />
                         <button
-                          aria-label={`Delete folder ${entry.group.folder.name}`}
-                          title="Delete folder"
-                          onClick={() => setFolderToDelete(entry.group.folder)}
-                          className="rounded-full p-1.5 text-muted-foreground transition-colors hover:text-destructive"
+                          onClick={() => toggleCollapsed(entry.group.key)}
+                          className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground"
                         >
-                          <Icon icon="lucide:trash-2" className="h-4 w-4" />
+                          <Icon
+                            icon={
+                              collapsed.has(entry.group.key)
+                                ? 'lucide:chevron-right'
+                                : 'lucide:chevron-down'
+                            }
+                            className="h-4 w-4 text-muted-foreground"
+                          />
+                          <Icon icon={entry.group.icon} className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          <span className="min-w-0 truncate">{entry.group.title}</span>
+                          <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
+                            {entry.group.items.length}
+                          </span>
+                          {entry.group.folder && entry.group.items.length === 0 && (
+                            <span className="shrink-0 text-xs font-normal text-muted-foreground">
+                              No QR codes yet
+                            </span>
+                          )}
                         </button>
                       </div>
-                    ) : null}
-                  </li>
-                ) : (
-                  <li
-                    key={`${entry.group.key}-${entry.item.id}`}
-                    className={`flex items-center gap-2 px-4 py-3 ${
-                      selected.has(entry.item.id) ? 'bg-muted/40' : ''
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selected.has(entry.item.id)}
-                      onChange={() => toggleSelected(entry.item.id)}
-                      aria-label={`Select ${entry.item.name}`}
-                      className="h-4 w-4 shrink-0 accent-primary"
-                    />
-                    <QrTypeBadge item={entry.item} />
-                    <span
-                      className="min-w-0 flex-1 truncate text-sm text-muted-foreground"
-                      title={entry.item.targetValue || entry.item.value}
+                      {entry.group.folder ? (
+                        <div className="flex items-center gap-1">
+                          <button
+                            aria-label={`Move folder ${entry.group.folder.name} up`}
+                            title="Move folder up"
+                            disabled={isFirstFolder(entry.group.folder)}
+                            onClick={() => moveFolder(entry.group.folder, -1)}
+                            className="rounded-full p-1.5 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
+                          >
+                            <Icon icon="lucide:arrow-up" className="h-4 w-4" />
+                          </button>
+                          <button
+                            aria-label={`Move folder ${entry.group.folder.name} down`}
+                            title="Move folder down"
+                            disabled={isLastFolder(entry.group.folder)}
+                            onClick={() => moveFolder(entry.group.folder, 1)}
+                            className="rounded-full p-1.5 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
+                          >
+                            <Icon icon="lucide:arrow-down" className="h-4 w-4" />
+                          </button>
+                          <button
+                            aria-label={`Delete folder ${entry.group.folder.name}`}
+                            title="Delete folder"
+                            onClick={() => setFolderToDelete(entry.group.folder)}
+                            className="rounded-full p-1.5 text-muted-foreground transition-colors hover:text-destructive"
+                          >
+                            <Icon icon="lucide:trash-2" className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : null}
+                    </li>
+                  ) : (
+                    <li
+                      key={`${entry.group.key}-${entry.item.id}`}
+                      className={`flex items-center gap-2 px-4 py-3 ${
+                        selected.has(entry.item.id) ? 'bg-muted/40' : ''
+                      }`}
                     >
-                      {formatDestinationSummary(entry.item.targetValue || entry.item.value)}
-                    </span>
-                    <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
-                      {entry.item.stats.scanCount} scans · {timeAgo(entry.item.stats.lastScannedAt)}
-                    </span>
-                    <div className="shrink-0">
-                      <QuickPreviewButton onClick={() => setPreviewItem(entry.item)} />
-                      <QuickCopyButton item={entry.item} onCopy={() => copyShortLink(entry.item)} />
-                    </div>
-                    <RowActionMenu item={entry.item} {...getRowHandlers(entry.item)} />
-                  </li>
-                ),
+                      <Checkbox
+                        checked={selected.has(entry.item.id)}
+                        onCheckedChange={() => toggleSelected(entry.item.id)}
+                        aria-label={`Select ${entry.item.name}`}
+                        className="h-4 w-4 shrink-0 cursor-pointer"
+                      />
+                      <QrTypeBadge item={entry.item} />
+                      <span
+                        className="min-w-0 flex-1 truncate text-sm text-muted-foreground"
+                        title={entry.item.targetValue || entry.item.value}
+                      >
+                        {formatDestinationSummary(entry.item.targetValue || entry.item.value)}
+                      </span>
+                      <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+                        {entry.item.stats.scanCount} scans · {timeAgo(entry.item.stats.lastScannedAt)}
+                      </span>
+                      <div className="shrink-0">
+                        <QuickPreviewButton onClick={() => setPreviewItem(entry.item)} />
+                        <QuickCopyButton item={entry.item} onCopy={() => copyShortLink(entry.item)} />
+                      </div>
+                      <RowActionMenu item={entry.item} {...getRowHandlers(entry.item)} />
+                    </li>
+                  ),
+                )}
+              </ul>
+              {totalPages > 1 && (
+                <PaginationControls
+                  page={safePage}
+                  totalPages={totalPages}
+                  pageSize={pageSize}
+                  totalItems={totalItems}
+                  onPageChange={setPage}
+                  onPageSizeChange={(size) => {
+                    setPageSize(size);
+                    setPage(0);
+                  }}
+                />
               )}
-            </ul>
-            {totalPages > 1 && (
-              <PaginationControls
-                page={safePage}
-                totalPages={totalPages}
-                onPageChange={setPage}
-              />
-            )}
-          </Card>
-        )}
-      </div>
+            </Card>
+          )}
+        </div>
+      </main>
 
       <Dialog open={previewItem !== null} onOpenChange={(open) => { if (!open) setPreviewItem(null); }}>
         <DialogContent className="sm:max-w-lg">
