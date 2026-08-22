@@ -2515,41 +2515,43 @@ export default function Dashboard() {
               <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">Saved QR Codes</h1>
             </div>
           </div>
-          <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
-            <div className="mr-6 flex items-center gap-4 border-r border-border px-4 py-1">
-              <div className="flex flex-col">
-                <span className="text-[10px] font-bold uppercase text-muted-foreground">Total Codes</span>
+          <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
+            <div className="flex min-w-0 items-center gap-3 border-r border-border pr-3 py-1 sm:gap-4 sm:pr-4">
+              <div className="flex min-w-0 flex-col">
+                <span className="truncate text-[10px] font-bold uppercase text-muted-foreground">Total Codes</span>
                 <span className="text-sm font-bold tabular-nums">{items.length}</span>
               </div>
-              <div className="flex flex-col">
-                <span className="text-[10px] font-bold uppercase text-muted-foreground">Total Scans</span>
+              <div className="flex min-w-0 flex-col">
+                <span className="truncate text-[10px] font-bold uppercase text-muted-foreground">Total Scans</span>
                 <span className="text-sm font-bold tabular-nums text-accent">{totalScans}</span>
               </div>
             </div>
-            <ThemeToggle />
-            <Button asChild variant="outline" className="rounded-full">
-              <Link href="/" className="inline-flex items-center gap-2">
-                <Icon icon="lucide:palette" className="h-4 w-4" />
-              </Link>
-            </Button>
-            <Button variant="outline" className="rounded-full" onClick={handleSignOut} disabled={signingOut}>
-              {signingOut ? (
-                <Icon icon="bx:loader-circle" className="h-4 w-4 animate-spin" />
-              ) : (
-                <Icon icon="lucide:log-out" className="h-4 w-4" />
-              )}
-            </Button>
-            <DestructiveConfirmDialog
-              trigger={
-                <Button variant="destructive" disabled={items.length === 0} className="rounded-full">
-                  Clear all
-                </Button>
-              }
-              title="Delete all saved QR codes?"
-              description="This will permanently delete every saved QR code in your dashboard. Their short links will stop working immediately."
-              actionLabel="Yes, delete all"
-              onConfirm={clearAll}
-            />
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+              <ThemeToggle />
+              <Button asChild variant="outline" className="rounded-full">
+                <Link href="/" className="inline-flex items-center gap-2">
+                  <Icon icon="lucide:palette" className="h-4 w-4" />
+                </Link>
+              </Button>
+              <Button variant="outline" className="rounded-full" onClick={handleSignOut} disabled={signingOut}>
+                {signingOut ? (
+                  <Icon icon="bx:loader-circle" className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Icon icon="lucide:log-out" className="h-4 w-4" />
+                )}
+              </Button>
+              <DestructiveConfirmDialog
+                trigger={
+                  <Button variant="destructive" disabled={items.length === 0} className="rounded-full">
+                    Clear all
+                  </Button>
+                }
+                title="Delete all saved QR codes?"
+                description="This will permanently delete every saved QR code in your dashboard. Their short links will stop working immediately."
+                actionLabel="Yes, delete all"
+                onConfirm={clearAll}
+              />
+            </div>
           </div>
         </div>
       </header>
@@ -2562,12 +2564,12 @@ export default function Dashboard() {
             foldersCollapsed ? 'lg:w-auto' : 'lg:w-72',
           )}
         >
-          <div className={cn('flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-paper', foldersCollapsed && 'w-fit')}>
+          <div className={cn('flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-paper', foldersCollapsed && 'lg:w-fit')}>
             <div className="flex items-center justify-between border-b border-border bg-muted/20 p-4">
               <div className="flex min-w-0 items-center gap-2">
                 <button
                   onClick={() => setFoldersCollapsed((v) => !v)}
-                  className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-muted"
+                  className="hidden rounded-full p-1 text-muted-foreground transition-colors hover:bg-muted lg:block"
                   title={foldersCollapsed ? 'Expand folders' : 'Collapse folders'}
                   aria-label={foldersCollapsed ? 'Expand folders' : 'Collapse folders'}
                   aria-expanded={!foldersCollapsed}
@@ -2577,23 +2579,20 @@ export default function Dashboard() {
                     className="h-4 w-4"
                   />
                 </button>
-                <h2 className={cn('truncate text-xs font-bold uppercase tracking-wider text-muted-foreground', foldersCollapsed && 'hidden')}>
+                <h2 className={cn('truncate text-xs font-bold uppercase tracking-wider text-muted-foreground', foldersCollapsed && 'lg:hidden')}>
                   Folders
                 </h2>
               </div>
-              {!foldersCollapsed && (
-                <button
-                  onClick={() => setFolderCreateOpen(true)}
-                  className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted"
-                  title="New Folder"
-                  aria-label="New folder"
-                >
-                  <Icon icon="lucide:folder-plus" className="h-4 w-4" />
-                </button>
-              )}
+              <button
+                onClick={() => setFolderCreateOpen(true)}
+                className={cn('rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted', foldersCollapsed && 'lg:hidden')}
+                title="New Folder"
+                aria-label="New folder"
+              >
+                <Icon icon="lucide:folder-plus" className="h-4 w-4" />
+              </button>
             </div>
-            {!foldersCollapsed && (
-              <nav className="flex-1 py-2">
+            <nav className={cn('flex-1 py-2', foldersCollapsed && 'lg:hidden')}>
               <button
                 onClick={() => setActiveFolderKey('all')}
                 aria-label="View all QR codes"
@@ -2681,11 +2680,10 @@ export default function Dashboard() {
                 </span>
               </button>
             </nav>
-            )}
           </div>
 
-          {!foldersCollapsed && topItem && (
-            <div className="rounded-2xl border border-accent/20 bg-accent/5 p-4 shadow-paper text-foreground">
+          {topItem && (
+            <div className={cn('rounded-2xl border border-accent/20 bg-accent/5 p-4 shadow-paper text-foreground', foldersCollapsed && 'lg:hidden')}>
               <h4 className="mb-2 text-[10px] font-bold uppercase tracking-wider text-accent">Top Performance</h4>
               <p className="truncate text-sm font-bold" title={topItem.name}>{topItem.name}</p>
               <p className="text-xs text-muted-foreground">
