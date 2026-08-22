@@ -738,71 +738,91 @@ function ToolbarSortDropdown({
   onSort: (key: SortKey) => void;
 }) {
   const SORT_OPTIONS: { key: SortKey; label: string }[] = [
-    { key: 'type', label: 'Type' },
-    { key: 'destination', label: 'Destination' },
-    { key: 'scanCount', label: 'Scan count' },
     { key: 'createdAt', label: 'Created' },
+    { key: 'destination', label: 'Name' },
+    { key: 'scanCount', label: 'Scans' },
+    { key: 'type', label: 'Type' },
   ];
-  const current = SORT_OPTIONS.find((o) => o.key === sortBy) ?? SORT_OPTIONS[3];
-  const dirIcon = sortDir === 'desc' ? 'lucide:arrow-down-narrow-wide' : 'lucide:arrow-up-narrow-wide';
+  const current = SORT_OPTIONS.find((o) => o.key === sortBy) ?? SORT_OPTIONS[0];
+  
+  const getDirLabels = (key: SortKey): { desc: string; asc: string } => {
+    switch (key) {
+      case 'createdAt':
+        return { desc: 'Latest', asc: 'Oldest' };
+      case 'scanCount':
+        return { desc: 'Most', asc: 'Least' };
+      case 'destination':
+      case 'type':
+      default:
+        return { desc: 'Descending', asc: 'Ascending' };
+    }
+  };
+  
+  const dirLabels = getDirLabels(sortBy);
+  const dirLabel = sortDir === 'desc' ? dirLabels.desc : dirLabels.asc;
+  
+  const handleDirectionToggle = (newDir: 'asc' | 'desc') => {
+    if (sortDir !== newDir) {
+      onSort(sortBy);
+    }
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-border bg-transparent px-4 text-xs font-bold text-foreground transition-colors hover:bg-secondary">
-          <Icon icon={dirIcon} className="h-4 w-4" />
-          <span className="hidden md:inline">
-            Sorted by {current.label} · {sortDirLabel(current.key, sortDir)}
-          </span>
-          <span className="md:hidden">
-            {current.label} · {sortDirLabel(current.key, sortDir)}
-          </span>
+        <button className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-border bg-transparent px-4 text-sm font-medium text-foreground transition-colors hover:bg-secondary">
+          <span>{current.label}</span>
+          <span className="text-muted-foreground">{dirLabel}</span>
+          <Icon icon="lucide:chevron-down" className="h-4 w-4 text-muted-foreground" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">
-        <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+        <div className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">
           Sort by
         </div>
         {SORT_OPTIONS.map((option) => {
           const active = sortBy === option.key;
-          const dir: 'asc' | 'desc' = active ? sortDir : DEFAULT_SORT_DIR[option.key];
           return (
             <DropdownMenuItem
               key={option.key}
               onSelect={() => onSort(option.key)}
-              className={active ? 'font-medium text-foreground' : undefined}
+              className="px-4 py-2 cursor-pointer"
             >
-              <Icon
-                icon={dir === 'desc' ? 'lucide:arrow-down-narrow-wide' : 'lucide:arrow-up-narrow-wide'}
-                className={cn('h-4 w-4', active ? 'text-accent' : 'text-muted-foreground/60')}
-              />
-              <span className="flex-1 truncate">{option.label}</span>
-              <span
-                className={cn(
-                  'text-[10px] font-bold',
-                  active ? 'text-accent' : 'text-muted-foreground',
-                )}
-              >
-                {sortDirLabel(option.key, dir)}
-              </span>
-              <Icon
-                icon={active ? 'lucide:check' : 'lucide:chevron-right'}
-                className="ml-1 h-3.5 w-3.5 text-muted-foreground"
-              />
+              <span className="flex-1 text-sm">{option.label}</span>
+              {active && <Icon icon="lucide:check" className="h-4 w-4 text-foreground ml-2" />}
             </DropdownMenuItem>
           );
         })}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => onSort(sortBy)}>
-          <Icon
-            icon={sortDir === 'desc' ? 'lucide:arrow-down' : 'lucide:arrow-up'}
-            className="h-4 w-4 text-muted-foreground"
-          />
-          <span className="flex-1 truncate">Direction</span>
-          <span className="text-[10px] font-bold text-muted-foreground">
-            {sortDirLabel(sortBy, sortDir)}
-          </span>
-          <Icon icon="lucide:repeat" className="ml-1 h-3.5 w-3.5 text-muted-foreground" />
-        </DropdownMenuItem>
+        
+        <DropdownMenuSeparator className="my-2" />
+        
+        <div className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+          Order
+        </div>
+        <div className="px-4 py-2 flex gap-2">
+          <button
+            onClick={() => handleDirectionToggle('desc')}
+            className={cn(
+              'flex-1 px-3 py-2 rounded-full text-sm font-medium transition-colors border',
+              sortDir === 'desc'
+                ? 'bg-foreground text-background border-foreground'
+                : 'bg-transparent text-foreground border-border hover:bg-secondary'
+            )}
+          >
+            {dirLabels.desc}
+          </button>
+          <button
+            onClick={() => handleDirectionToggle('asc')}
+            className={cn(
+              'flex-1 px-3 py-2 rounded-full text-sm font-medium transition-colors border',
+              sortDir === 'asc'
+                ? 'bg-foreground text-background border-foreground'
+                : 'bg-transparent text-foreground border-border hover:bg-secondary'
+            )}
+          >
+            {dirLabels.asc}
+          </button>
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -831,7 +851,7 @@ function PaginationControls({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="inline-flex h-8 items-center gap-2 rounded-full border border-border bg-card px-3 text-[10px] font-bold text-foreground transition-colors hover:bg-secondary">
-              <span className="tabular-nums">{pageSize} / page</span>
+              <span className="tabular-nums">{pageSize}</span>
               <Icon icon="lucide:chevron-down" className="h-3 w-3 text-muted-foreground" />
             </button>
           </DropdownMenuTrigger>
@@ -842,7 +862,7 @@ function PaginationControls({
                 onSelect={() => onPageSizeChange(option)}
                 className={pageSize === option ? 'font-medium text-foreground' : undefined}
               >
-                <span className="flex-1 tabular-nums">{option} items</span>
+                <span className="flex-1 tabular-nums">{option} codes</span>
                 {pageSize === option && (
                   <Icon icon="lucide:check" className="h-3.5 w-3.5 text-accent" />
                 )}
@@ -851,7 +871,7 @@ function PaginationControls({
           </DropdownMenuContent>
         </DropdownMenu>
         <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground tabular-nums">
-          {totalItems === 0 ? '0 items' : `${startItem}–${endItem} of ${totalItems}`}
+          {totalItems === 0 ? '0 items' : `${startItem}–${endItem} of ${totalItems} codes`}
         </span>
       </div>
       <div className="flex items-center gap-2">
@@ -2808,11 +2828,11 @@ export default function Dashboard() {
                           }`}
                         />
                       </th>
-                      <th className="w-24 px-3 py-3 font-bold">Type</th>
-                      <th className="px-3 py-3 font-bold">Destination</th>
-                      <th className="w-16 px-3 py-3 font-bold">Scans</th>
-                      <th className="w-24 px-3 py-3 font-bold">Created</th>
-                      <th className="w-24 px-3 py-3 pr-5 text-right font-bold">Tools</th>
+                      <th className="px-3 py-3 font-bold">Type</th>
+                      <th className="w-48 px-3 py-3 font-bold">Destination</th>
+                      <th className="px-3 py-3 font-bold">Scans</th>
+                      <th className="px-3 py-3 font-bold">Created</th>
+                      <th className="px-3 py-3 pr-5 text-right font-bold">Tools</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2920,10 +2940,10 @@ export default function Dashboard() {
                               }`}
                             />
                           </td>
-                          <td className="w-24 px-3 py-2.5">
+                          <td className="px-3 py-2.5">
                             <QrTypeBadge item={entry.item} />
                           </td>
-                          <td className="min-w-0 px-3 py-2.5 text-muted-foreground">
+                          <td className="w-48 min-w-0 px-3 py-2.5 text-muted-foreground">
                             <div className="flex min-w-0 flex-col">
                               <span className="truncate text-xs font-bold text-foreground" title={entry.item.name}>
                                 {entry.item.name}
@@ -2933,13 +2953,13 @@ export default function Dashboard() {
                               </span>
                             </div>
                           </td>
-                          <td className="w-16 px-3 py-2.5 font-bold tabular-nums">
+                          <td className="px-3 py-2.5 font-bold tabular-nums">
                             {entry.item.stats.scanCount}
                           </td>
-                          <td className="w-24 whitespace-nowrap px-3 py-2.5 text-muted-foreground">
+                          <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">
                             {timeAgo(entry.item.createdAt)}
                           </td>
-                          <td className="w-24 px-3 py-2.5 pr-5 text-right">
+                          <td className="px-3 py-2.5 pr-5 text-right">
                             <div className="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                               <QuickPreviewButton onClick={() => setPreviewItem(entry.item)} />
                               <QuickCopyButton item={entry.item} onCopy={() => copyShortLink(entry.item)} />
@@ -3058,7 +3078,7 @@ export default function Dashboard() {
                   ),
                 )}
               </ul>
-              {totalPages > 1 && (
+              {totalItems > 0 && (
                 <PaginationControls
                   page={safePage}
                   totalPages={totalPages}
