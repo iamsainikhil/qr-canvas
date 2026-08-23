@@ -2728,17 +2728,6 @@ export default function Dashboard() {
               ))}
             </div>
             <ToolbarSortDropdown sortBy={sortBy} sortDir={sortDir} onSort={handleSort} />
-            <Button
-              size="sm"
-              className="h-10 shrink-0 rounded-full px-4 text-xs font-bold"
-              variant={selected.size > 0 ? 'default' : 'outline'}
-              disabled={selected.size === 0}
-              onClick={() => setBulkFolderOpen(true)}
-              title="Select QR codes to run bulk actions"
-            >
-              <Icon icon="lucide:check-circle" className="h-4 w-4" />
-              Bulk Actions
-            </Button>
           </div>
 
           {/* Selection Bar */}
